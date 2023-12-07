@@ -1,14 +1,14 @@
 package main
 
 import (
+	"Rail-Ticket-Notifier/utils/constants"
 	"context"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/chromedp/chromedp"
 	"log"
 	"strings"
 	"time"
-
-	"github.com/chromedp/chromedp"
 )
 
 func main() {
@@ -18,40 +18,38 @@ func main() {
 
 	// Navigate to the URL
 	fmt.Println("Search Started")
-	url := "https://eticket.railway.gov.bd/booking/train/search/en?fromcity=Dhaka&tocity=Chattogram&doj=29-Oct-2023&class=S_CHAIR"
+	url := constants.BASE_URL + constants.FROM + "Dhaka" + constants.TO + "Chattogram" + constants.DATE + "17-Dec-2023" + constants.CLASS
+	log.Println(url)
 	if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
 		log.Fatal(err)
 	}
 
 	// Wait for some time (adjust this as needed) to ensure the page has loaded
 	// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
-	chromedp.Sleep(time.Second)
+	chromedp.Sleep(5 * time.Second)
 	fmt.Println("Search Ended")
 	// Extract the page content after it has loaded
 	var pageContent string
 	if err := chromedp.Run(ctx, chromedp.InnerHTML("html", &pageContent)); err != nil {
 		log.Fatal(err)
 	}
-
 	// Process and print the page content
-	//fmt.Println(pageContent)
+	//log.Println(pageContent)
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(pageContent))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	doc.Find("h2").Each(func(index int, element *goquery.Selection) {
-		// Get the text within the h2 element
-		trainName := element.Text()
+	doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
+		// Extract the train name
+		trainName := element.Find(".trip-name h2").Text()
+		fmt.Println("Train Name:", trainName)
 
-		// Check if the text contains "(number)" and extract the train name
-		parts := strings.Split(trainName, "(")
-		if len(parts) >= 2 {
-			train := strings.TrimSpace(parts[0])
-
-			// Print the train name
-			fmt.Println("Train Name:", train)
-		}
+		// Extract the seat numbers
+		element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
+			seatNumber := seatElement.Text()
+			fmt.Println("Seat Number:", seatNumber)
+		})
 	})
 }
