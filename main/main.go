@@ -7,6 +7,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/chromedp"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,7 +19,7 @@ func main() {
 
 	// Navigate to the URL
 	fmt.Println("Search Started")
-	url := constants.BASE_URL + constants.FROM + "Dhaka" + constants.TO + "Chattogram" + constants.DATE + "17-Dec-2023" + constants.CLASS
+	url := constants.BASE_URL + constants.FROM + "Dhaka" + constants.TO + "Chattogram" + constants.DATE + "15-Dec-2023" + constants.CLASS
 	log.Println(url)
 	if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
 		log.Fatal(err)
@@ -42,14 +43,31 @@ func main() {
 	}
 
 	doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
+		showTrain := false
+
+		// Filter train by Minimum number of seats
+		element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
+			seatCountStr := seatElement.Text()
+			seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
+			if uint(seatCount) > constants.MIN_SEAT_COUNT {
+				showTrain = true
+				return
+			}
+		})
+
 		// Extract the train name
-		trainName := element.Find(".trip-name h2").Text()
-		fmt.Println("Train Name:", trainName)
+		if showTrain {
+			trainName := element.Find(".trip-name h2").Text()
+			fmt.Println("Train Name:", trainName)
+		}
 
 		// Extract the seat numbers
 		element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
-			seatNumber := seatElement.Text()
-			fmt.Println("Seat Number:", seatNumber)
+			seatCountStr := seatElement.Text()
+			seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
+			if uint(seatCount) > constants.MIN_SEAT_COUNT {
+				fmt.Println("Seat Count:", seatCount)
+			}
 		})
 	})
 }
