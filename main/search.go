@@ -12,9 +12,12 @@ import (
 	"time"
 )
 
-func performSearch(url string, ctx context.Context) (string, bool) {
+func performSearch(url string) (string, bool) {
+	attemptNo := 0
 	for {
 		log.Println(url)
+		ctx, cancel := chromedp.NewContext(context.Background())
+		defer cancel()
 		if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
 			log.Fatal(err)
 		}
@@ -35,7 +38,7 @@ func performSearch(url string, ctx context.Context) (string, bool) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		messageBody := ""
+		messageBody := "Follow this URL to purchase: " + url + "\n"
 		showTrain := false
 		doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
 
@@ -66,9 +69,12 @@ func performSearch(url string, ctx context.Context) (string, bool) {
 				}
 			})
 		})
+		fmt.Println(messageBody)
 		if showTrain {
 			return messageBody, showTrain
 		}
+		attemptNo++
+		fmt.Println("Attempt Number: ", attemptNo)
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
 }

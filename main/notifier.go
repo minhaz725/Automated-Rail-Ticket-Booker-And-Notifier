@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func sendEmail(messageBody string) {
+func sendEmail(messageBody string, date string) {
 	// Sender data.
 	from := constants.SENDER_EMAIL_ADDRESS
 	password := constants.SENDER_EMAIL_PASSWORD
@@ -20,7 +20,7 @@ func sendEmail(messageBody string) {
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	mail := generateMail(messageBody, from, to)
+	mail := generateMail(messageBody, from, to, date)
 	// Authentication.
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
@@ -33,11 +33,11 @@ func sendEmail(messageBody string) {
 	fmt.Println("Email Sent Successfully!")
 }
 
-func generateMail(messageBody string, from string, to []string) string {
+func generateMail(messageBody string, from string, to []string, date string) string {
 	// Message.
 	msg := "From: " + from + "\r\n"
 	msg += "To: " + strings.Join(to, ";") + "\r\n"
-	msg += "Subject: Available Tickets From Rail Ticket Notifier\r\n"
+	msg += "Subject: Available Tickets on " + date + " From Rail Ticket Notifier\r\n"
 	msg += "\r\n" + messageBody
 	return msg
 }
