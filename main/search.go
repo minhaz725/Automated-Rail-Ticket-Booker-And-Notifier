@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func performSearch(url string, ctx context.Context) {
+func performSearch(url string, ctx context.Context) string {
 	log.Println(url)
 	if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
 		log.Fatal(err)
@@ -34,7 +34,7 @@ func performSearch(url string, ctx context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	messageBody := ""
 	doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
 		showTrain := false
 
@@ -51,7 +51,8 @@ func performSearch(url string, ctx context.Context) {
 		// Extract the train name
 		if showTrain {
 			trainName := element.Find(".trip-name h2").Text()
-			fmt.Println("Train Name:", trainName)
+			//fmt.Println("Train Name:", trainName)
+			messageBody = messageBody + "Train Name:" + trainName + "\n"
 		}
 
 		// Extract the seat numbers
@@ -59,8 +60,10 @@ func performSearch(url string, ctx context.Context) {
 			seatCountStr := seatElement.Text()
 			seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
 			if uint(seatCount) > constants.MIN_SEAT_COUNT {
-				fmt.Println("Seat Count:", seatCount)
+				//fmt.Println("Seat Count:", seatCount)
+				messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
 			}
 		})
 	})
+	return messageBody
 }
