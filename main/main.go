@@ -14,8 +14,10 @@ func main() {
 
 	// Navigate to the URL
 	fmt.Println("Search Started")
-	url := constants.BASE_URL + constants.FROM + constants.TO + constants.DATE + "18-Dec-2023" + constants.CLASS
-	messageBody := performSearch(url, ctx)
+	url := constants.BASE_URL + constants.FROM + constants.TO + constants.DATE + "17-Dec-2023" + constants.CLASS
+	messageBody, send := performSearch(url, ctx)
 	fmt.Println(messageBody)
-	sendEmail(messageBody)
+	if send {
+		sendEmail(messageBody)
+	}
 }

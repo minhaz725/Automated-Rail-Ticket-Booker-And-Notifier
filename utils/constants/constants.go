@@ -10,4 +10,5 @@ const (
 	SENDER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD  = "akey whwp pnul eskw"
 	RECEIVER_EMAIL_ADDRESS = "jabretretequou-9772@yopmail.com" //"atiabintiaziz@gmail.com"
+	SEARCH_DELAY_IN_SEC    = 30
 )
