@@ -13,11 +13,11 @@ import (
 )
 
 func performSearch(url string) (string, bool) {
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
+	log.Println(url)
 	attemptNo := 0
 	for {
-		log.Println(url)
-		ctx, cancel := chromedp.NewContext(context.Background())
-		defer cancel()
 		if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
 			log.Fatal(err)
 		}
