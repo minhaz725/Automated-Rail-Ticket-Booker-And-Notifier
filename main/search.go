@@ -40,21 +40,23 @@ func performSearch(url string) (string, bool) {
 		}
 		messageBody := "Follow this URL to purchase: " + url + "\n"
 		showTrain := false
+		specificTrain := false
 		doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
 
 			// Filter train by Minimum number of seats
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) > constants.MIN_SEAT_COUNT {
+				if uint(seatCount) >= constants.MIN_SEAT_COUNT {
 					showTrain = true
 					return
 				}
 			})
 
 			// Extract the train name
+			trainName := ""
 			if showTrain {
-				trainName := element.Find(".trip-name h2").Text()
+				trainName = element.Find(".trip-name h2").Text()
 				//fmt.Println("Train Name:", trainName)
 				messageBody = messageBody + "Train Name:" + trainName + "\n"
 			}
@@ -63,14 +65,25 @@ func performSearch(url string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) > constants.MIN_SEAT_COUNT {
-					//fmt.Println("Seat Count:", seatCount)
-					messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
+
+				if constants.SPECIFIC_TRAIN != "" {
+					if uint(seatCount) >= constants.MIN_SEAT_COUNT && trainName == constants.SPECIFIC_TRAIN {
+						//fmt.Println("Seat Count:", seatCount)
+						specificTrain = true
+						messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
+					}
+				} else {
+					if uint(seatCount) >= constants.MIN_SEAT_COUNT {
+						//fmt.Println("Seat Count:", seatCount)
+						specificTrain = true
+						messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
+					}
 				}
+
 			})
 		})
 		fmt.Println(messageBody)
-		if showTrain {
+		if showTrain && specificTrain {
 			return messageBody, showTrain
 		}
 		attemptNo++

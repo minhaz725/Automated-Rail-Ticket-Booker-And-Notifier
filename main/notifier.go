@@ -15,6 +15,7 @@ func sendEmail(messageBody string, date string) {
 	// Receiver email address.
 	to := []string{
 		constants.RECEIVER_EMAIL_ADDRESS,
+		"minhaztimu7250@gmail.com",
 	}
 	// smtp server configuration.
 	smtpHost := "smtp.gmail.com"
