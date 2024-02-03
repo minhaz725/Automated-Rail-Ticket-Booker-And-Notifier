@@ -7,24 +7,28 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/chromedp"
 	"log"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 )
 
 func performSearch(url string) (string, bool) {
-	ctx, cancel := chromedp.NewContext(context.Background())
-	defer cancel()
-	log.Println(url)
 	attemptNo := 0
 	for {
+		fmt.Println("Search Started")
+		ctx, cancel := chromedp.NewContext(context.Background())
+
 		if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
 			log.Fatal(err)
 		}
 
 		// Wait for some time (adjust this as needed) to ensure the page has loaded
 		// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
-		chromedp.Sleep(5 * time.Second)
+
+		chromedp.Sleep(7 * time.Second)
+
 		fmt.Println("Search Ended")
 		// Extract the page content after it has loaded
 		var pageContent string
@@ -32,12 +36,15 @@ func performSearch(url string) (string, bool) {
 			log.Fatal(err)
 		}
 		// Process and print the page content
-		//log.Println(pageContent)
 
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(pageContent))
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		//renderedHTML := printHtml(err, doc)
+		//generateHtmlFile(err, renderedHTML)
+
 		messageBody := "Follow this URL to purchase: " + url + "\n"
 		showTrain := false
 		specificTrain := false
@@ -74,12 +81,46 @@ func performSearch(url string) (string, bool) {
 				}
 			})
 		})
-		fmt.Println(messageBody)
+		//fmt.Println(messageBody)
 		if showTrain && specificTrain {
+			// Navigate to the URL within the same browser instance
+			cmd := exec.Command("C:/Program Files/Google/Chrome/Application/chrome.exe", url)
+			if err := cmd.Run(); err != nil {
+				log.Fatal(err)
+			}
+			log.Println(url)
+			cancel() // Cancel the context explicitly when done
 			return messageBody, showTrain
 		}
+		// Cancel the context to end this loop's context
+		cancel()
+
 		attemptNo++
 		fmt.Println("Attempt Number: ", attemptNo)
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
+}
+
+func generateHtmlFile(err error, renderedHTML string) {
+	//Write the rendered HTML to a file
+	filename := "parsed-page.html"
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = file.WriteString(renderedHTML)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("HTML file generated:", filename)
+}
+
+func printHtml(err error, doc *goquery.Document) string {
+	renderedHTML, err := doc.Html()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(renderedHTML)
+	return renderedHTML
 }

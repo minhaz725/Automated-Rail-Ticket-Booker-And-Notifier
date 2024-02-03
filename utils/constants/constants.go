@@ -1,7 +1,7 @@
 package constants
 
 const (
-	BASE_URL               = "https://eticket.railway.gov.bd/booking/train/search/en?"
+	BASE_URL               = "https://eticket.railway.gov.bd/booking/train/search/?"
 	FROM                   = "fromcity=Dhaka"
 	TO                     = "&tocity=Chattogram"
 	DATE                   = "&doj="
