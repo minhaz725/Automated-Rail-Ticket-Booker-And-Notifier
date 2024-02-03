@@ -47,7 +47,7 @@ func performSearch(url string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) >= constants.MIN_SEAT_COUNT {
+				if uint(seatCount) > constants.MIN_SEAT_COUNT {
 					showTrain = true
 					return
 				}
@@ -65,21 +65,13 @@ func performSearch(url string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-
-				if constants.SPECIFIC_TRAIN != "" {
-					if uint(seatCount) >= constants.MIN_SEAT_COUNT && trainName == constants.SPECIFIC_TRAIN {
-						//fmt.Println("Seat Count:", seatCount)
+				if uint(seatCount) > constants.MIN_SEAT_COUNT {
+					//fmt.Println("Seat Count:", seatCount)
+					if trainName == constants.SPECIFIC_TRAIN {
 						specificTrain = true
-						messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
 					}
-				} else {
-					if uint(seatCount) >= constants.MIN_SEAT_COUNT {
-						//fmt.Println("Seat Count:", seatCount)
-						specificTrain = true
-						messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
-					}
+					messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
 				}
-
 			})
 		})
 		fmt.Println(messageBody)

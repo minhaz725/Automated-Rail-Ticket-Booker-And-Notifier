@@ -3,6 +3,7 @@ package main
 import (
 	"Rail-Ticket-Notifier/utils/constants"
 	"fmt"
+	"net/http"
 	"net/smtp"
 	"strings"
 )
@@ -32,6 +33,32 @@ func sendEmail(messageBody string, date string) {
 		return
 	}
 	fmt.Println("Email Sent Successfully!")
+
+	makeCall()
+}
+
+func makeCall() {
+	urlTimu := "https://1dcd-103-180-245-255.ngrok-free.app/call/timu"
+
+	// Make a GET request to the specified URL
+	_, err := http.Get(urlTimu)
+	if err != nil {
+		fmt.Println("Error making GET request:", err)
+		return
+	} else {
+		fmt.Println("call made successfully")
+	}
+
+	urlMuna := "https://1dcd-103-180-245-255.ngrok-free.app/call/muna"
+
+	// Make a GET request to the specified URL
+	_, err = http.Get(urlMuna)
+	if err != nil {
+		fmt.Println("Error making GET request:", err)
+		return
+	} else {
+		fmt.Println("call made successfully")
+	}
 }
 
 func generateMail(messageBody string, from string, to []string, date string) string {
