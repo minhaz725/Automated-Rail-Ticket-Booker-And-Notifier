@@ -8,7 +8,6 @@ import (
 	"github.com/chromedp/chromedp"
 	"log"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -81,13 +80,8 @@ func performSearch(url string) (string, bool) {
 				}
 			})
 		})
-		//fmt.Println(messageBody)
+		fmt.Println(messageBody)
 		if showTrain && specificTrain {
-			// Navigate to the URL within the same browser instance
-			cmd := exec.Command("C:/Program Files/Google/Chrome/Application/chrome.exe", url)
-			if err := cmd.Run(); err != nil {
-				log.Fatal(err)
-			}
 			log.Println(url)
 			cancel() // Cancel the context explicitly when done
 			return messageBody, showTrain
