@@ -10,6 +10,6 @@ const (
 	SENDER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD  = "akey whwp pnul eskw"
 	RECEIVER_EMAIL_ADDRESS = "atiabintiaziz@gmail.com"
-	SEARCH_DELAY_IN_SEC    = 5
-	SPECIFIC_TRAIN         = "SUBORNO EXPRESS (702)"
+	SEARCH_DELAY_IN_SEC    = 2
+	SPECIFIC_TRAIN         = "SONAR BANGLA EXPRESS (788)"
 )

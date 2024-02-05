@@ -17,9 +17,21 @@ func performSearch(url string) (string, bool) {
 	attemptNo := 0
 	for {
 		fmt.Println("Search Started")
-		ctx, cancel := chromedp.NewContext(context.Background())
+		opts := append(chromedp.DefaultExecAllocatorOptions[:],
+			chromedp.Flag("headless", false),
+		)
+		// Create a context with options.
+		initialCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 
-		if err := chromedp.Run(ctx, chromedp.Navigate(url)); err != nil {
+		//start chrome.exe --remote-debugging-port=9222
+		//ctx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
+		ctx, cancel := chromedp.NewContext(initialCtx)
+
+		if err :=
+			chromedp.Run(ctx,
+				chromedp.Navigate(url),
+				chromedp.WaitVisible(`button.modify_search.mod_search`),
+				chromedp.WaitVisible(`/privacy-policy`)); err != nil {
 			log.Fatal(err)
 		}
 
@@ -83,6 +95,23 @@ func performSearch(url string) (string, bool) {
 		fmt.Println(messageBody)
 		if showTrain && specificTrain {
 			log.Println(url)
+			var example string
+			err := chromedp.Run(ctx,
+				chromedp.Evaluate(`(() => {
+					const headers = Array.from(document.querySelectorAll('h2'));
+					const header = headers.find(h => h.innerText === '`+constants.SPECIFIC_TRAIN+`');
+					if (!header) throw new Error('Header not found');
+					const btn = header.closest('app-single-trip').querySelector('.trip-details-btn');
+					if (!btn) throw new Error('Button not found');
+					btn.click();
+					})()`,
+					&example),
+
+				chromedp.Sleep(10*time.Second),
+			)
+			if err != nil {
+				log.Fatal(err)
+			}
 			cancel() // Cancel the context explicitly when done
 			return messageBody, showTrain
 		}
