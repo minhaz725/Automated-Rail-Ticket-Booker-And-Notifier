@@ -60,7 +60,7 @@ func performSearch(url string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) > constants.MIN_SEAT_COUNT {
+				if uint(seatCount) >= constants.SEAT_COUNT {
 					showTrain = true
 					return
 				}
@@ -78,7 +78,7 @@ func performSearch(url string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) > constants.MIN_SEAT_COUNT {
+				if uint(seatCount) >= constants.SEAT_COUNT {
 					//fmt.Println("Seat Count:", seatCount)
 					if trainName == constants.SPECIFIC_TRAIN {
 						specificTrain = true
@@ -111,20 +111,28 @@ func performSearch(url string) (string, bool) {
         const bookNowBtn = seatDiv.querySelector('.book-now-btn-wrapper .book-now-btn');
         if (!bookNowBtn) throw new Error('Book now button not found');
         bookNowBtn.click();
-
-        setTimeout(() => {
-            const seatOne = document.querySelector('.btn-seat.seat-available[title="`+constants.SEAT_ONE_NUMB+`"]');
-            if (!seatOne) throw new Error('seatOne button not found');
-            seatOne.click();
-			const seatTwo = document.querySelector('.btn-seat.seat-available[title="`+constants.SEAT_TWO_NUMB+`"]');
-            if (!seatTwo) throw new Error('seatTwo button not found');
-            seatTwo.click();
-			//setTimeout(() => {
-			//				const continueButton = document.querySelector('.continue-btn');
-			//				if (!continueButton) throw new Error('Continue Purchase button not found');
-			//				continueButton.click();
-			//			},  500); 
-        },  1000); // Delay of  1000 milliseconds (1 second)
+		
+		setTimeout(() => {
+			 const bogieSelection = document.getElementById('select-bogie');
+			if (!bogieSelection) throw new Error('Bogie selection dropdown not found');
+			bogieSelection.value = `+constants.CoachMap[constants.COACH_NUMB]+`;
+			// Dispatch an input event to simulate user interaction
+			bogieSelection.dispatchEvent(new Event('change', { bubbles: true }));
+       			setTimeout(() => {
+			
+            	const seatOne = document.querySelector('.btn-seat.seat-available[title="`+constants.COACH_NUMB+constants.SEAT_ONE_NUMB+`"]');
+            	if (!seatOne) throw new Error('seatOne button not found');
+            	seatOne.click();
+				const seatTwo = document.querySelector('.btn-seat.seat-available[title="`+constants.COACH_NUMB+constants.SEAT_TWO_NUMB+`"]');
+            	if (!seatTwo) throw new Error('seatTwo button not found');
+            	seatTwo.click();
+					//setTimeout(() => {
+					//				const continueButton = document.querySelector('.continue-btn');
+					//				if (!continueButton) throw new Error('Continue Purchase button not found');
+					//				continueButton.click();
+		 			//			},  500); 
+        		},  500); // Delay of  1000 milliseconds (1 second)
+			},  500); 
 
     })()`, &example),
 				chromedp.Sleep(2*time.Second),

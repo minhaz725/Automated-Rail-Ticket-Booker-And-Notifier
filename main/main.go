@@ -6,9 +6,8 @@ import (
 
 func main() {
 	// Create a context
-	// Navigate to the URL
-	date := "15-Feb-2024"
-	url := constants.BASE_URL + constants.FROM + constants.TO + constants.DATE + date + constants.CLASS
+	// Create the URL
+	url := constants.BASE_URL + constants.FROM + constants.TO + constants.DATE + constants.CLASS
 	_, send := performSearch(url)
 	if send {
 		//sendEmail(messageBody, date)
