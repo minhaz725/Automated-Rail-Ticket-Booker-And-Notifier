@@ -12,4 +12,7 @@ const (
 	RECEIVER_EMAIL_ADDRESS = "atiabintiaziz@gmail.com"
 	SEARCH_DELAY_IN_SEC    = 2
 	SPECIFIC_TRAIN         = "SONAR BANGLA EXPRESS (788)"
+	SEAT_TYPE              = "S_CHAIR"
+	SEAT_ONE_NUMB          = "KA-6"
+	SEAT_TWO_NUMB          = "KA-7"
 )

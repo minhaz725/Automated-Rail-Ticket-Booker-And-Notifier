@@ -17,19 +17,14 @@ func performSearch(url string) (string, bool) {
 	attemptNo := 0
 	for {
 		fmt.Println("Search Started")
-		opts := append(chromedp.DefaultExecAllocatorOptions[:],
-			chromedp.Flag("headless", false),
-		)
-		// Create a context with options.
-		initialCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-
 		//start chrome.exe --remote-debugging-port=9222
-		//ctx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
+		initialCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
 		ctx, cancel := chromedp.NewContext(initialCtx)
 
 		if err :=
 			chromedp.Run(ctx,
 				chromedp.Navigate(url),
+				chromedp.Sleep(3*time.Second),
 				chromedp.WaitVisible(`button.modify_search.mod_search`),
 				chromedp.WaitVisible(`/privacy-policy`)); err != nil {
 			log.Fatal(err)
@@ -38,7 +33,7 @@ func performSearch(url string) (string, bool) {
 		// Wait for some time (adjust this as needed) to ensure the page has loaded
 		// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
 
-		chromedp.Sleep(7 * time.Second)
+		chromedp.Sleep(2 * time.Second)
 
 		fmt.Println("Search Ended")
 		// Extract the page content after it has loaded
@@ -98,16 +93,41 @@ func performSearch(url string) (string, bool) {
 			var example string
 			err := chromedp.Run(ctx,
 				chromedp.Evaluate(`(() => {
-					const headers = Array.from(document.querySelectorAll('h2'));
-					const header = headers.find(h => h.innerText === '`+constants.SPECIFIC_TRAIN+`');
-					if (!header) throw new Error('Header not found');
-					const btn = header.closest('app-single-trip').querySelector('.trip-details-btn');
-					if (!btn) throw new Error('Button not found');
-					btn.click();
-					})()`,
-					&example),
+        const headers = Array.from(document.querySelectorAll('h2'));
+        const header = headers.find(h => h.innerText === '`+constants.SPECIFIC_TRAIN+`');
+        if (!header) throw new Error('Header not found');
+        const appSingleTrip = header.closest('app-single-trip');
+        if (!appSingleTrip) throw new Error('Parent component not found');
+        
+        // Filter single-seat-class divs by the text content of the seat-class-name span
+        const seatClassDivs = Array.from(appSingleTrip.querySelectorAll('.single-seat-class'));
+        const seatDiv = seatClassDivs.find(div => {
+            const seatNameSpan = div.querySelector('.seat-class-name');
+            return seatNameSpan && seatNameSpan.innerText.trim() === '`+constants.SEAT_TYPE+`';
+        });
+        if (!seatDiv) throw new Error('Seat class div not found');
+        
+        // Find and click the book now button within the specific seat class div
+        const bookNowBtn = seatDiv.querySelector('.book-now-btn-wrapper .book-now-btn');
+        if (!bookNowBtn) throw new Error('Book now button not found');
+        bookNowBtn.click();
 
-				chromedp.Sleep(10*time.Second),
+        setTimeout(() => {
+            const seatOne = document.querySelector('.btn-seat.seat-available[title="`+constants.SEAT_ONE_NUMB+`"]');
+            if (!seatOne) throw new Error('seatOne button not found');
+            seatOne.click();
+			const seatTwo = document.querySelector('.btn-seat.seat-available[title="`+constants.SEAT_TWO_NUMB+`"]');
+            if (!seatTwo) throw new Error('seatTwo button not found');
+            seatTwo.click();
+			//setTimeout(() => {
+			//				const continueButton = document.querySelector('.continue-btn');
+			//				if (!continueButton) throw new Error('Continue Purchase button not found');
+			//				continueButton.click();
+			//			},  500); 
+        },  1000); // Delay of  1000 milliseconds (1 second)
+
+    })()`, &example),
+				chromedp.Sleep(2*time.Second),
 			)
 			if err != nil {
 				log.Fatal(err)
