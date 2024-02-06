@@ -18,7 +18,7 @@ func performSearch(url string) (string, bool) {
 	for {
 		fmt.Println("Search Started")
 		//start chrome.exe --remote-debugging-port=9222
-		initialCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
+		initialCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
 		ctx, cancel := chromedp.NewContext(initialCtx)
 
 		if err :=
