@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func sendEmail(messageBody string, date string) {
+func sendEmail(messageBody string) {
 	// Sender data.
 	from := constants.SENDER_EMAIL_ADDRESS
 	password := constants.SENDER_EMAIL_PASSWORD
@@ -22,7 +22,7 @@ func sendEmail(messageBody string, date string) {
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	mail := generateMail(messageBody, from, to, date)
+	mail := generateMail(messageBody, from, to, constants.DATE)
 	// Authentication.
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
@@ -38,7 +38,7 @@ func sendEmail(messageBody string, date string) {
 }
 
 func makeCall() {
-	urlTimu := "https://1dcd-103-180-245-255.ngrok-free.app/call/timu"
+	urlTimu := "https://21f6-103-23-42-178.ngrok-free.app/call/timu"
 
 	// Make a GET request to the specified URL
 	_, err := http.Get(urlTimu)
@@ -49,16 +49,16 @@ func makeCall() {
 		fmt.Println("call made successfully")
 	}
 
-	urlMuna := "https://1dcd-103-180-245-255.ngrok-free.app/call/muna"
-
-	// Make a GET request to the specified URL
-	_, err = http.Get(urlMuna)
-	if err != nil {
-		fmt.Println("Error making GET request:", err)
-		return
-	} else {
-		fmt.Println("call made successfully")
-	}
+	//urlMuna := "https://21f6-103-23-42-178.ngrok-free.app/call/muna"
+	//
+	//// Make a GET request to the specified URL
+	//_, err = http.Get(urlMuna)
+	//if err != nil {
+	//	fmt.Println("Error making GET request:", err)
+	//	return
+	//} else {
+	//	fmt.Println("call made successfully")
+	//}
 }
 
 func generateMail(messageBody string, from string, to []string, date string) string {
