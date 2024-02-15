@@ -14,7 +14,11 @@ const (
 	SEARCH_DELAY_IN_SEC    = 2
 	SPECIFIC_TRAIN         = "SONAR"
 	SEAT_TYPE              = "S_CHAIR"
-	COACH_NUMB             = "SCHA"
-	SEAT_ONE_NUMB          = "-16"
-	SEAT_TWO_NUMB          = "-17"
+	COACH_NUMB             = "JHA"
+	SEAT_ONE_NUMB          = "-6"
+	SEAT_TWO_NUMB          = "-7"
+)
+
+var (
+	SEAT_TYPE_ARRAY = []string{"S_CHAIR", "SNIGDHA"}
 )
