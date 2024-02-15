@@ -3,7 +3,7 @@ package constants
 const (
 	BASE_URL               = "https://eticket.railway.gov.bd/booking/train/search/?"
 	DEBUG_CHROME_URL       = "http://localhost:9222"
-	FROM                   = "fromcity=Cox%27s%20Bazar"
+	FROM                   = "fromcity=Dhaka"
 	TO                     = "&tocity=Chattogram"
 	DATE                   = "&doj=20-Feb-2024"
 	CLASS                  = "&class=S_CHAIR"
@@ -12,7 +12,7 @@ const (
 	SENDER_EMAIL_PASSWORD  = "akey whwp pnul eskw"
 	RECEIVER_EMAIL_ADDRESS = "atiabintiaziz@gmail.com"
 	SEARCH_DELAY_IN_SEC    = 2
-	SPECIFIC_TRAIN         = "PARJOTAK"
+	SPECIFIC_TRAIN         = "SONAR"
 	SEAT_TYPE              = "S_CHAIR"
 	COACH_NUMB             = "SCHA"
 	SEAT_ONE_NUMB          = "-16"
