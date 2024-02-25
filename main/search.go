@@ -127,8 +127,7 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
         				const bogieSelection = document.getElementById('select-bogie');
         				if (!bogieSelection) throw new Error('Bogie selection dropdown not found');
         
- 						// Find the option that contains the coach numb
-        				//const coachOption = Array.from(bogieSelection.options).find(option => option.text.includes('` + constants.COACH_NUMB + `'));
+ 						// Find the option that contains the coach numb with highest seat
 
 						const extractNumber = (text) => {
         					const match = text.match(/\d+/);
@@ -143,10 +142,10 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 							return currentNumber > highestNumber ? current : highest;
 						}, options[0]);
 
-						const highestLabel = highestOption.text.split(' - ')[0];
+						const coachWithHighestSeat = highestOption.text.split(' - ')[0];
 
-        				//throw new Error("Option with text " + highestLabel + " not found");
-						const coachOption = Array.from(bogieSelection.options).find(option => option.text.includes(highestLabel));
+        				//throw new Error("Option with text " + coachWithHighestSeat + " not found");
+						const coachOption = Array.from(bogieSelection.options).find(option => option.text.includes(coachWithHighestSeat));
         
         				// Set the selected option to the one found
         				bogieSelection.value = coachOption.value;
@@ -154,21 +153,36 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
         				bogieSelection.dispatchEvent(new Event('change', { bubbles: true }));
 
        					setTimeout(() => {
-			
-            				const seatOne = document.querySelector('.btn-seat.seat-available[title="` + constants.COACH_NUMB + constants.SEAT_ONE_NUMB + `"]');
-            				if (!seatOne) throw new Error('seatOne button not found');
-            				seatOne.click();
-							const seatTwo = document.querySelector('.btn-seat.seat-available[title="` + constants.COACH_NUMB + constants.SEAT_TWO_NUMB + `"]');
-            				if (!seatTwo) throw new Error('seatTwo button not found');
-            				seatTwo.click();
-								//setTimeout(() => {
-								//	const continueButton = document.querySelector('.continue-btn');
-								//	if (!continueButton) throw new Error('Continue Purchase button not found');
-								//	continueButton.click();
-		 						//},  500); 
-        					},  500); // Delay of  1000 milliseconds (1 second)
-						},  500); 
 
+							const clickSeatButton = (seatNumber) => {
+								const seatButton = document.querySelector('.btn-seat.seat-available[title="' + coachWithHighestSeat + '-' + seatNumber + '"]');
+
+								if (seatButton) {
+									seatButton.click();
+									return true; // Seat button found and clicked
+								}
+								return false; // Seat button not found
+							};
+
+							// Starting seat number
+							let seatNumber = 1;
+							let seatCount = parseInt('` + strconv.Itoa(constants.SEAT_COUNT) + `')
+	
+    						// Loop to find and click on seat buttons
+							while (seatCount > 0) {
+								if (clickSeatButton(seatNumber)) {
+									seatCount--
+								}
+								seatNumber++; // Increment the seat number for the next iteration
+							}
+			
+							setTimeout(() => {
+								const continueButton = document.querySelector('.continue-btn');
+								if (!continueButton) throw new Error('Continue Purchase button not found');
+								continueButton.click();
+		 					},  500); 
+        				},  500); // Delay of  1000 milliseconds (1 second)
+					},  1000);
     			})()`
 
 		if showTrain && specificTrain {
