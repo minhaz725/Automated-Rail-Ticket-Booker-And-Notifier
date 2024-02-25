@@ -54,6 +54,7 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 		messageBody := "Follow this URL to purchase: " + url + "\n"
 		showTrain := false
 		specificTrain := false
+		selectedSpecificTrain := ""
 		doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
 
 			// Filter train by Minimum number of seats
@@ -80,8 +81,13 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
 				if uint(seatCount) >= constants.SEAT_COUNT {
 					//fmt.Println("Seat Count:", seatCount)
-					if strings.Contains(trainName, constants.SPECIFIC_TRAIN) {
-						specificTrain = true
+					for _, specificTrainName := range constants.SPECIFIC_TRAIN_ARRAY {
+						// Check if trainName contains the specific train name
+						if strings.Contains(trainName, specificTrainName) {
+							specificTrain = true
+							selectedSpecificTrain = specificTrainName
+							break
+						}
 					}
 					messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
 				}
@@ -91,7 +97,7 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 
 		jsCode := `(() => {
 					const headers = Array.from(document.querySelectorAll('h2'));
-        			const header = headers.find(h => h.innerText.includes('` + constants.SPECIFIC_TRAIN + `'));
+        			const header = headers.find(h => h.innerText.includes('` + selectedSpecificTrain + `'));
         			if (!header) throw new Error('Header not found');
         			const appSingleTrip = header.closest('app-single-trip');
         			if (!appSingleTrip) throw new Error('Parent component not found');
