@@ -128,8 +128,25 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
         				if (!bogieSelection) throw new Error('Bogie selection dropdown not found');
         
  						// Find the option that contains the coach numb
-        				const coachOption = Array.from(bogieSelection.options).find(option => option.text.includes('` + constants.COACH_NUMB + `'));
-        				if (!coachOption) throw new Error('Option with text ` + constants.COACH_NUMB + ` not found');
+        				//const coachOption = Array.from(bogieSelection.options).find(option => option.text.includes('` + constants.COACH_NUMB + `'));
+
+						const extractNumber = (text) => {
+        					const match = text.match(/\d+/);
+        					return match ? parseInt(match[0]) : 0;
+    					};
+
+						// Find the option with the highest number
+						const options = Array.from(bogieSelection.options);
+						const highestOption = options.reduce((highest, current) => {
+							const highestNumber = extractNumber(highest.text);
+							const currentNumber = extractNumber(current.text);
+							return currentNumber > highestNumber ? current : highest;
+						}, options[0]);
+
+						const highestLabel = highestOption.text.split(' - ')[0];
+
+        				//throw new Error("Option with text " + highestLabel + " not found");
+						const coachOption = Array.from(bogieSelection.options).find(option => option.text.includes(highestLabel));
         
         				// Set the selected option to the one found
         				bogieSelection.value = coachOption.value;
@@ -144,11 +161,11 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 							const seatTwo = document.querySelector('.btn-seat.seat-available[title="` + constants.COACH_NUMB + constants.SEAT_TWO_NUMB + `"]');
             				if (!seatTwo) throw new Error('seatTwo button not found');
             				seatTwo.click();
-								setTimeout(() => {
-									const continueButton = document.querySelector('.continue-btn');
-									if (!continueButton) throw new Error('Continue Purchase button not found');
-									continueButton.click();
-		 						},  500); 
+								//setTimeout(() => {
+								//	const continueButton = document.querySelector('.continue-btn');
+								//	if (!continueButton) throw new Error('Continue Purchase button not found');
+								//	continueButton.click();
+		 						//},  500); 
         					},  500); // Delay of  1000 milliseconds (1 second)
 						},  500); 
 
