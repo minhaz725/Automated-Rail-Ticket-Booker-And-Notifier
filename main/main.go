@@ -14,8 +14,8 @@ func main() {
 
 	// Create the URL
 	url := constants.BASE_URL + constants.FROM + constants.TO + constants.DATE + constants.CLASS
-	_, send := performSearch(url, string(seatBookerFunctionInBytes))
+	messageBody, send := performSearch(url, string(seatBookerFunctionInBytes))
 	if send {
-		//sendEmail(messageBody)
+		sendEmail(messageBody)
 	}
 }

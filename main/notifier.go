@@ -38,7 +38,7 @@ func sendEmail(messageBody string) {
 }
 
 func makeCall() {
-	urlTimu := "https://ece9-103-72-212-129.ngrok-free.app/call/timu"
+	urlTimu := "https://e83c-103-243-82-92.ngrok-free.app/call/timu"
 
 	// Make a GET request to the specified URL
 	_, err := http.Get(urlTimu)
@@ -49,7 +49,7 @@ func makeCall() {
 		fmt.Println("call made successfully")
 	}
 
-	urlMuna := "https://ece9-103-72-212-129.ngrok-free.app/call/muna"
+	urlMuna := "https://e83c-103-243-82-92.ngrok-free.app/call/muna"
 
 	// Make a GET request to the specified URL
 	_, err = http.Get(urlMuna)
