@@ -192,11 +192,11 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 								seatNumber++; // Increment the seat number for the next iteration
 							}
 			
-							//setTimeout(() => {
-							//	const continueButton = document.querySelector('.continue-btn');
-							//	if (!continueButton) throw new Error('Continue Purchase button not found');
-							//	continueButton.click();
-		 					//},  500); 
+							setTimeout(() => {
+								const continueButton = document.querySelector('.continue-btn');
+								if (!continueButton) throw new Error('Continue Purchase button not found');
+								continueButton.click();
+		 					},  500); 
         				},  500); // Delay of  1000 milliseconds (1 second)
 					},  1000);
     			})()`
