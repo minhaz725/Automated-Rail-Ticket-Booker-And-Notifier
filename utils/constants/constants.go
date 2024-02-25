@@ -15,6 +15,6 @@ const (
 )
 
 var (
-	SEAT_TYPE_ARRAY      = []string{"S_CHAIR", "SNIGDHA"}
+	SEAT_TYPE_ARRAY      = []string{"SNIGDHA", "S_CHAIR"}
 	SPECIFIC_TRAIN_ARRAY = []string{"TURNA", "PARJOTAK", "BAZAR"}
 )

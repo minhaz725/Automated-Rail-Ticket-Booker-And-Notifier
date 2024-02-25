@@ -15,11 +15,21 @@ import (
 
 func performSearch(url string, seatBookerFunction string) (string, bool) {
 	attemptNo := 0
+	openBrowser := false
 	for {
 		fmt.Println("Search Started")
 		//start chrome.exe --remote-debugging-port=9222
-		initialCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
-		ctx, cancel := chromedp.NewContext(initialCtx)
+		var initialCtx context.Context
+		var cancel context.CancelFunc
+		var ctx context.Context
+
+		if openBrowser {
+			initialCtx, cancel = chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+			ctx, cancel = chromedp.NewContext(initialCtx)
+		} else {
+			initialCtx, cancel = chromedp.NewContext(context.Background())
+			ctx, cancel = chromedp.NewContext(initialCtx)
+		}
 
 		if err :=
 			chromedp.Run(ctx,
@@ -182,16 +192,22 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 								seatNumber++; // Increment the seat number for the next iteration
 							}
 			
-							setTimeout(() => {
-								const continueButton = document.querySelector('.continue-btn');
-								if (!continueButton) throw new Error('Continue Purchase button not found');
-								continueButton.click();
-		 					},  500); 
+							//setTimeout(() => {
+							//	const continueButton = document.querySelector('.continue-btn');
+							//	if (!continueButton) throw new Error('Continue Purchase button not found');
+							//	continueButton.click();
+		 					//},  500); 
         				},  500); // Delay of  1000 milliseconds (1 second)
 					},  1000);
     			})()`
 
 		if showTrain && specificTrain {
+			if openBrowser == false {
+				openBrowser = true
+				continue
+				// open browser if conditions are matched
+			}
+
 			log.Println(url)
 			var example string
 			err := chromedp.Run(ctx,
