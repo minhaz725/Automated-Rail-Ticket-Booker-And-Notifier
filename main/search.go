@@ -70,6 +70,9 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 
 			// Filter train by Minimum number of seats
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
+				//if specificTrain {
+				//	return
+				//}
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
 				if uint(seatCount) >= arguments.SEAT_COUNT {
@@ -88,6 +91,9 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 
 			// Extract the seat numbers
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
+				//if specificTrain {
+				//	return
+				//}
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
 				if uint(seatCount) >= arguments.SEAT_COUNT {
@@ -97,7 +103,7 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 						if strings.Contains(trainName, specificTrainName) {
 							specificTrain = true
 							selectedSpecificTrain = specificTrainName
-							break
+							//return
 						}
 					}
 					messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
