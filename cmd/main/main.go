@@ -7,10 +7,11 @@ import (
 
 // sample arg: go run . -from "Khulna" -to "Dhaka" -date "26-Mar-2024" -seatCount 4 -seatTypes "SNIGDHA,S_CHAIR" -trains "TURNA,SUNDARBAN,BAZAR"
 func main() {
-	window, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry := ui.InitializeUIAndForm()
 
-	form := ui.CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry)
+	window, introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry := ui.InitializeUIAndForm()
 
-	window.SetContent(container.NewVBox(form))
+	form := ui.CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, ui.GetSubmitButton())
+
+	window.SetContent(container.NewVBox(introLabel, form))
 	window.ShowAndRun()
 }

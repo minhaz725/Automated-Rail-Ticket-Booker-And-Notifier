@@ -12,7 +12,10 @@ import (
 	"strings"
 )
 
-func HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry) {
+func HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry, submitButton *widget.Button) {
+	// Disable the submit button
+	submitButton.Disable()
+
 	// Attempt to parse seatCount to uint
 	seatCountVal, err := strconv.ParseUint(seatCountEntry.Text, 10, 32)
 	if err != nil {
@@ -31,10 +34,10 @@ func HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTyp
 	)
 
 	// Proceed with your application logic in a separate goroutine
-	go handleCoreOperation()
+	go handleCoreOperation(submitButton)
 }
 
-func handleCoreOperation() {
+func handleCoreOperation(submitButton *widget.Button) {
 	seatBooker, _ := os.Open("seatBooker.js")
 	defer seatBooker.Close()
 
@@ -44,4 +47,7 @@ func handleCoreOperation() {
 	if send {
 		notifier.SendEmail(messageBody)
 	}
+
+	// Re-enable the submit button
+	submitButton.Enable()
 }
