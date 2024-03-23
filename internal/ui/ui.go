@@ -1,7 +1,8 @@
-package main
+package ui
 
 import (
-	"Rail-Ticket-Notifier/utils/arguments"
+	"Rail-Ticket-Notifier/cmd/handlers"
+	"Rail-Ticket-Notifier/internal/arguments"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/widget"
@@ -28,4 +29,20 @@ func InitializeUIAndForm() (fyne.Window, *widget.Entry, *widget.Entry, *widget.E
 	trainsEntry := widget.NewEntry()
 	trainsEntry.SetText(strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ","))
 	return window, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry
+}
+
+func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry) *widget.Form {
+	return &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "From", Widget: fromEntry},
+			{Text: "To", Widget: toEntry},
+			{Text: "Date", Widget: dateEntry},
+			{Text: "Seat Count", Widget: seatCountEntry},
+			{Text: "Seat Types", Widget: seatTypesEntry},
+			{Text: "Trains", Widget: trainsEntry},
+		},
+		OnSubmit: func() {
+			handlers.HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry)
+		},
+	}
 }

@@ -1,7 +1,7 @@
-package main
+package notifier
 
 import (
-	"Rail-Ticket-Notifier/utils/arguments"
+	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
 	"fmt"
 	"net/http"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func sendEmail(messageBody string) {
+func SendEmail(messageBody string) {
 	// Sender data.
 	from := constants.SENDER_EMAIL_ADDRESS
 	password := constants.SENDER_EMAIL_PASSWORD

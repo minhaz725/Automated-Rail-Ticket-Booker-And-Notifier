@@ -1,7 +1,7 @@
-package main
+package search
 
 import (
-	"Rail-Ticket-Notifier/utils/arguments"
+	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func performSearch(url string, seatBookerFunction string) (string, bool) {
+func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	attemptNo := 0
 	openBrowser := false
 	for {

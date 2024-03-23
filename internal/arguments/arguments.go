@@ -3,7 +3,6 @@ package arguments
 import (
 	"Rail-Ticket-Notifier/utils/constants"
 	"flag"
-	"strconv"
 	"strings"
 )
 
@@ -35,16 +34,15 @@ func init() {
 	flag.Parse()
 }
 
-func UpdateArguments(from, to, date string, seatCount string, seatTypes, trains []string) {
-	value, _ := strconv.ParseUint(seatCount, 10, 32)
+func UpdateArguments(from, to, date string, seatCount uint, seatTypes, trains []string) {
 	FROM = from
 	TO = to
 	DATE = date
-	SEAT_COUNT = uint(value)
+	SEAT_COUNT = seatCount
 	SEAT_TYPE_ARRAY = seatTypes
 	SPECIFIC_TRAIN_ARRAY = trains
 }
 
-func GetURL() string {
-	return constants.BASE_URL + "fromcity=" + FROM + "&tocity=" + TO + "&doj=" + DATE + "&class=" + SEAT_TYPE_ARRAY[0]
+func GenerateURL() string {
+	return constants.BASE_URL + constants.FROM_KEY + FROM + constants.TO_KEY + TO + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
 }
