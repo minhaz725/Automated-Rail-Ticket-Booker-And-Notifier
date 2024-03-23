@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Rail-Ticket-Notifier/utils/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
 	"fmt"
 	"net/http"
@@ -22,7 +23,7 @@ func sendEmail(messageBody string) {
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	mail := generateMail(messageBody, from, to, constants.DATE)
+	mail := generateMail(messageBody, from, to, arguments.DATE)
 	// Authentication.
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 

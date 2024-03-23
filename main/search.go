@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Rail-Ticket-Notifier/utils/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
 	"fmt"
@@ -71,7 +72,7 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) >= constants.SEAT_COUNT {
+				if uint(seatCount) >= arguments.SEAT_COUNT {
 					showTrain = true
 					return
 				}
@@ -89,9 +90,9 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) >= constants.SEAT_COUNT {
+				if uint(seatCount) >= arguments.SEAT_COUNT {
 					//fmt.Println("Seat Count:", seatCount)
-					for _, specificTrainName := range constants.SPECIFIC_TRAIN_ARRAY {
+					for _, specificTrainName := range arguments.SPECIFIC_TRAIN_ARRAY {
 						// Check if trainName contains the specific train name
 						if strings.Contains(trainName, specificTrainName) {
 							specificTrain = true
@@ -115,13 +116,13 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
         			// Filter single-seat-class divs by the text content of the seat-class-name span
         			const seatClassDivs = Array.from(appSingleTrip.querySelectorAll('.single-seat-class'));
         			
-					let seatTypeArrayLength = parseInt('` + strconv.Itoa(len(constants.SEAT_TYPE_ARRAY)) + `')
+					let seatTypeArrayLength = parseInt('` + strconv.Itoa(len(arguments.SEAT_TYPE_ARRAY)) + `')
 					let bookNowBtn
 
 					for(i=0; i< seatTypeArrayLength; i++) {
 						let seatType
-						if(i==0) seatType = '` + constants.SEAT_TYPE_ARRAY[0] + `'
-						if(i==1) seatType = '` + constants.SEAT_TYPE_ARRAY[1] + `'
+						if(i==0) seatType = '` + arguments.SEAT_TYPE_ARRAY[0] + `'
+						if(i==1) seatType = '` + arguments.SEAT_TYPE_ARRAY[1] + `'
 						//if(i==2) seatType = '` + /*constants.SEAT_TYPE_ARRAY[2] +*/ `'
 						let seatDiv = seatClassDivs.find(div => {
 							let seatNameSpan = div.querySelector('.seat-class-name');
@@ -182,7 +183,7 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 
 							// Starting seat number
 							let seatNumber = 1;
-							let seatCount = parseInt('` + strconv.Itoa(constants.SEAT_COUNT) + `')
+							let seatCount = parseInt('` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `')
 	
     						// Loop to find and click on seat buttons
 							while (seatCount > 0) {
@@ -192,11 +193,11 @@ func performSearch(url string, seatBookerFunction string) (string, bool) {
 								seatNumber++; // Increment the seat number for the next iteration
 							}
 			
-							setTimeout(() => {
-								const continueButton = document.querySelector('.continue-btn');
-								if (!continueButton) throw new Error('Continue Purchase button not found');
-								continueButton.click();
-		 					},  500); 
+							//setTimeout(() => {
+							//	const continueButton = document.querySelector('.continue-btn');
+							//	if (!continueButton) throw new Error('Continue Purchase button not found');
+							//	continueButton.click();
+		 					//},  500); 
         				},  500); // Delay of  1000 milliseconds (1 second)
 					},  1000);
     			})()`
