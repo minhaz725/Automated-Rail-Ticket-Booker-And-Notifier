@@ -7,7 +7,6 @@ import (
 
 type ElementsOfUI struct {
 	Window         fyne.Window
-	IntroLabel     *widget.Label
 	FromEntry      *widget.Entry
 	ToEntry        *widget.Entry
 	DateEntry      *widget.Entry

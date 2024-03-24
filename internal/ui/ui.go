@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	xwidget "fyne.io/x/fyne/widget"
 	"strconv"
@@ -20,7 +21,13 @@ func InitializeUIAndForm() models.ElementsOfUI {
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
 	window.Resize(fyne.NewSize(800, 600))
-	introLabel := widget.NewLabel(constants.INTRO_MSG)
+
+	// welcome popup
+	label := widget.NewLabel(constants.INTRO_MSG)
+	label.Alignment = fyne.TextAlignLeading // Set text alignment to left
+	customDialog := dialog.NewCustom("Welcome", "OK", container.NewVBox(label), window)
+	customDialog.Show()
+
 	// Create form fields with default values
 	fromEntry := widget.NewEntry()
 	fromEntry.SetText(arguments.FROM) // Default value from arguments package
@@ -42,13 +49,16 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	goToBookEntry := widget.NewCheck("Uncheck this to stay at seat selection page to manually adjust seats.", func(value bool) {})
 	goToBookEntry.SetChecked(arguments.GO_TO_BOOK_PAGE != 0)
 
-	content := container.NewVBox(introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry)
+	content := container.NewVBox(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, emailEntry, phoneEntry, goToBookEntry)
 
-	window.SetContent(content)
+	scrollContainer := container.NewVScroll(content)
+
+	scrollContainer.SetMinSize(fyne.NewSize(800, 600)) // Set minimum size to window size
+
+	window.SetContent(scrollContainer)
 
 	uiElements := models.ElementsOfUI{
 		Window:         window,
-		IntroLabel:     introLabel,
 		FromEntry:      fromEntry,
 		ToEntry:        toEntry,
 		DateEntry:      dateEntry,
