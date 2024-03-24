@@ -178,7 +178,9 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
        					setTimeout(() => {
 
 							const clickSeatButton = (seatNumber) => {
-								const seatButton = document.querySelector('.btn-seat.seat-available[title="' + coachWithHighestSeat + '-' + seatNumber + '"]');
+								const selector = '.btn-seat.seat-available[title^="' + coachWithHighestSeat + '-"][title$="-' + seatNumber + '"]';
+
+								const seatButton = document.querySelector(selector);
 
 								if (seatButton) {
 									seatButton.click();
