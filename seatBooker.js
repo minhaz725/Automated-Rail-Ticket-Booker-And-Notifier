@@ -111,12 +111,15 @@
             clickSeatButtons(coachWithHighestSeat)
                 .then(() => {
                     // After clicking on seats, find and click the "Continue Purchase" button
-                    setTimeout(() => {
-                        const continueButton = document.querySelector(".continue-btn");
-                        if (!continueButton)
-                            throw new Error("Continue Purchase button not found");
-                        continueButton.click();
-                    }, 500); // Delay of 500 milliseconds after clicking on seats
+                    let purchasePage = parseInt("` + strconv.Itoa(int(arguments.GO_TO_BOOK_PAGE)) + `");
+                    if(purchasePage == 1) {
+                        setTimeout(() => {
+                            const continueButton = document.querySelector(".continue-btn");
+                            if (!continueButton)
+                                throw new Error("Continue Purchase button not found");
+                            continueButton.click();
+                        }, 500); // Delay of 500 milliseconds after clicking on seats
+                    }
                 })
                 .catch((error) => {
                     console.error(error); // Handle any errors from clicking on seat buttons

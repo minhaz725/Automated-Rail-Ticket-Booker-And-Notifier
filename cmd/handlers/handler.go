@@ -33,6 +33,7 @@ func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.B
 		uiElements.ToEntry.Text,
 		uiElements.DateEntry.Text,
 		uiElements.EmailEntry.Text,
+		uiElements.GoToBookEntry.Checked,
 		uint(seatCountVal),
 		strings.Split(uiElements.SeatTypesEntry.Text, ","),
 		strings.Split(uiElements.TrainsEntry.Text, ","),
@@ -67,11 +68,11 @@ func handleCoreOperation(successChan chan bool) {
 
 	seatBookerFunctionInBytes, _ := io.ReadAll(seatBooker)
 
-	messageBody, send := search.PerformSearch(arguments.GenerateURL(), string(seatBookerFunctionInBytes))
+	_, send := search.PerformSearch(arguments.GenerateURL(), string(seatBookerFunctionInBytes))
 	mailSuccess := false
 	callSuccess := false
 	if send {
-		mailSuccess = notifier.SendEmail(messageBody)
+		mailSuccess = true //notifier.SendEmail(messageBody)
 		callSuccess = notifier.MakeCall()
 	}
 	if mailSuccess && callSuccess {

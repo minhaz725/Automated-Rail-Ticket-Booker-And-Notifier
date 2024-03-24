@@ -39,6 +39,8 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	phoneEntry := widget.NewEntry()
 	phoneEntry.SetText(arguments.PHONE_NUMBER)
 	phoneEntry.Disable()
+	goToBookEntry := widget.NewCheck("Uncheck this to stay at seat selection page to manually adjust seats.", func(value bool) {})
+	goToBookEntry.SetChecked(arguments.GO_TO_BOOK_PAGE != 0)
 
 	content := container.NewVBox(introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry)
 
@@ -55,6 +57,7 @@ func InitializeUIAndForm() models.ElementsOfUI {
 		TrainsEntry:    trainsEntry,
 		EmailEntry:     emailEntry,
 		PhoneEntry:     phoneEntry,
+		GoToBookEntry:  goToBookEntry,
 	}
 
 	return uiElements
@@ -65,11 +68,6 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 	calendar := GetCalendar(func(t time.Time) {
 		uiElements.DateEntry.SetText(t.Format("02-Jan-2006"))
 	})
-	//checkbox := widget.NewCheck("I agree to the terms and conditions", func(value bool) {
-	//	// This function will be called when the checkbox is toggled
-	//	// You can handle the boolean value here
-	//	// For example, you could enable/disable other form elements based on this value
-	//})
 
 	form := &widget.Form{
 		Items: []*widget.FormItem{
@@ -82,7 +80,7 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 			{Text: "Trains (Choose only One.)", Widget: uiElements.TrainsEntry},
 			{Text: "Email address (To receive mail after done)", Widget: uiElements.EmailEntry},
 			{Text: "Phone Number (Currently unavailable)", Widget: uiElements.PhoneEntry},
-			//{Text: "Agreement", Widget: checkbox},
+			{Text: "Go To Book Page", Widget: uiElements.GoToBookEntry},
 		},
 	}
 

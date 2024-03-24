@@ -16,6 +16,7 @@ var (
 	SEAT_TYPE_ARRAY        = []string{"SNIGDHA", "S_CHAIR"}
 	SPECIFIC_TRAIN_ARRAY   = []string{"SUBORNO"} //{"SONAR", "TURNA", "SUBORNO"}
 	RECEIVER_EMAIL_ADDRESS string
+	GO_TO_BOOK_PAGE        uint
 )
 
 func init() {
@@ -29,6 +30,7 @@ func init() {
 	flag.StringVar(&DATE, "date", formattedDateAfterTwoDays, "Date of travel")
 	flag.StringVar(&RECEIVER_EMAIL_ADDRESS, "email", "minhaz725@gmail.com", "Email address")
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
+	flag.UintVar(&GO_TO_BOOK_PAGE, "purchasePage", 1, "Go to purchase page")
 
 	flag.Func("seatTypes", "Seat types", func(s string) error {
 		SEAT_TYPE_ARRAY = strings.Split(s, ",")
@@ -43,7 +45,7 @@ func init() {
 	flag.Parse()
 }
 
-func UpdateArguments(from, to, date, email string, seatCount uint, seatTypes, trains []string) {
+func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string) {
 	FROM = from
 	TO = to
 	DATE = date
@@ -51,6 +53,11 @@ func UpdateArguments(from, to, date, email string, seatCount uint, seatTypes, tr
 	SEAT_COUNT = seatCount
 	SEAT_TYPE_ARRAY = seatTypes
 	SPECIFIC_TRAIN_ARRAY = trains
+	if goToBookPage {
+		GO_TO_BOOK_PAGE = 1
+	} else {
+		GO_TO_BOOK_PAGE = 0
+	}
 }
 
 func GenerateURL() string {
