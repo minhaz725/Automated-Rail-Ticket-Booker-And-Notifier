@@ -14,6 +14,6 @@ func main() {
 
 	form := ui.CreateForm(elementsOfUI)
 
-	elementsOfUI.Window.SetContent(container.NewVBox(elementsOfUI.IntroLabel, form))
+	elementsOfUI.Window.SetContent(container.NewVBox(form))
 	elementsOfUI.Window.ShowAndRun()
 }
