@@ -36,6 +36,9 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	trainsEntry.SetText(strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ","))
 	emailEntry := widget.NewEntry()
 	emailEntry.SetText(arguments.RECEIVER_EMAIL_ADDRESS)
+	phoneEntry := widget.NewEntry()
+	phoneEntry.SetText(arguments.PHONE_NUMBER)
+	phoneEntry.Disable()
 
 	content := container.NewVBox(introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry)
 
@@ -51,6 +54,7 @@ func InitializeUIAndForm() models.ElementsOfUI {
 		SeatTypesEntry: seatTypesEntry,
 		TrainsEntry:    trainsEntry,
 		EmailEntry:     emailEntry,
+		PhoneEntry:     phoneEntry,
 	}
 
 	return uiElements
@@ -71,7 +75,8 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 			{Text: "Seat Count (1 to Max 4)", Widget: uiElements.SeatCountEntry},
 			{Text: "Seat Types (Will Prioritize Serial Wise)", Widget: uiElements.SeatTypesEntry},
 			{Text: "Trains (Choose only One.)", Widget: uiElements.TrainsEntry},
-			{Text: "Your email address", Widget: uiElements.EmailEntry},
+			{Text: "Email address (To receive mail after done)", Widget: uiElements.EmailEntry},
+			{Text: "Phone Number (Currently unavailable)", Widget: uiElements.PhoneEntry},
 		},
 	}
 

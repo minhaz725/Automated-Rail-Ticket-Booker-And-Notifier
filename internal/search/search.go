@@ -17,6 +17,11 @@ import (
 func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	attemptNo := 0
 	openBrowser := false
+	selectedSpecificTrain := ""
+	showTrain := false
+	specificTrain := false
+	messageBody := ""
+
 	for {
 		fmt.Println("Search Started")
 		//start chrome.exe --remote-debugging-port=9222
@@ -62,12 +67,10 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 		//renderedHTML := printHtml(err, doc)
 		//generateHtmlFile(err, renderedHTML)
 
-		messageBody := ""
-		showTrain := false
-		specificTrain := false
-		selectedSpecificTrain := ""
 		doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
-
+			if openBrowser {
+				return
+			}
 			// Filter train by Minimum number of seats
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
 				//if specificTrain {
@@ -248,7 +251,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			if openBrowser == false {
 				openBrowser = true
 				continue
-				// open browser if conditions are matched
+				// open browser in next iteration if conditions are matched
 			}
 
 			log.Println(url)

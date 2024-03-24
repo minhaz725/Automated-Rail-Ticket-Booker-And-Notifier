@@ -11,15 +11,17 @@ var (
 	TO                     string
 	DATE                   string
 	SEAT_COUNT             uint
+	PHONE_NUMBER           string
 	SEAT_TYPE_ARRAY        = []string{"SNIGDHA", "S_CHAIR"}
-	SPECIFIC_TRAIN_ARRAY   = []string{"SONAR"} //{"SONAR", "TURNA", "SUBORNO"}
+	SPECIFIC_TRAIN_ARRAY   = []string{"SUBORNO"} //{"SONAR", "TURNA", "SUBORNO"}
 	RECEIVER_EMAIL_ADDRESS string
 )
 
 func init() {
 	flag.StringVar(&FROM, "from", "Chattogram", "From city")
 	flag.StringVar(&TO, "to", "Dhaka", "To city")
-	flag.StringVar(&DATE, "date", "28-Mar-2024", "Date of travel")
+	flag.StringVar(&PHONE_NUMBER, "phone", "+8801555555555", "Phone")
+	flag.StringVar(&DATE, "date", "29-Mar-2024", "Date of travel")
 	flag.StringVar(&RECEIVER_EMAIL_ADDRESS, "email", "minhaz725@gmail.com", "Email address")
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
 

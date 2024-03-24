@@ -5,6 +5,7 @@ import (
 	"Rail-Ticket-Notifier/internal/models"
 	"Rail-Ticket-Notifier/internal/notifier"
 	"Rail-Ticket-Notifier/internal/search"
+	"Rail-Ticket-Notifier/utils/constants"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"io"
@@ -45,14 +46,13 @@ func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.B
 	success := <-successChan
 	if success {
 
-		dialog.ShowInformation("Success", "Operation completed successfully, an email has been sent to you\n. Application will automatically close in 10 secs.\n"+
-			" Go to the opened tab and finish your purchase. Thanks for using the app!", uiElements.Window)
+		dialog.ShowInformation("Success", constants.OUTRO_SUCCESS_MSG, uiElements.Window)
 		log.Println("Success!")
 		time.Sleep(10 * time.Second)
 		os.Exit(0)
 		return true
 	} else {
-		dialog.ShowInformation("Failed", "Operation Failed. Please try again!", uiElements.Window)
+		dialog.ShowInformation("Failed", constants.OUTRO_FAILURE_MSG, uiElements.Window)
 		log.Println("Operation failed.")
 		time.Sleep(5 * time.Second)
 		// Terminate the program
