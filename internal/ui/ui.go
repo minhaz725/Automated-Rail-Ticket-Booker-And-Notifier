@@ -3,6 +3,7 @@ package ui
 import (
 	"Rail-Ticket-Notifier/cmd/handlers"
 	"Rail-Ticket-Notifier/internal/arguments"
+	"Rail-Ticket-Notifier/internal/models"
 	"Rail-Ticket-Notifier/utils/constants"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-func InitializeUIAndForm() (fyne.Window, *widget.Label, *widget.Entry, *widget.Entry, *widget.Entry, *widget.Entry, *widget.Entry, *widget.Entry) {
+func InitializeUIAndForm() models.ElementsOfUI {
 	a := app.New()
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
@@ -33,34 +34,51 @@ func InitializeUIAndForm() (fyne.Window, *widget.Label, *widget.Entry, *widget.E
 	seatTypesEntry.SetText(strings.Join(arguments.SEAT_TYPE_ARRAY, ",")) // Default value from arguments package
 	trainsEntry := widget.NewEntry()
 	trainsEntry.SetText(strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ","))
+	emailEntry := widget.NewEntry()
+	emailEntry.SetText(arguments.RECEIVER_EMAIL_ADDRESS)
 
 	content := container.NewVBox(introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry)
 
 	window.SetContent(content)
 
-	return window, introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry
+	uiElements := models.ElementsOfUI{
+		Window:         window,
+		IntroLabel:     introLabel,
+		FromEntry:      fromEntry,
+		ToEntry:        toEntry,
+		DateEntry:      dateEntry,
+		SeatCountEntry: seatCountEntry,
+		SeatTypesEntry: seatTypesEntry,
+		TrainsEntry:    trainsEntry,
+		EmailEntry:     emailEntry,
+	}
+
+	return uiElements
 }
 
-func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry, submitButton *widget.Button, window fyne.Window) *fyne.Container {
+func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 
 	calendar := GetCalendar(func(t time.Time) {
-		dateEntry.SetText(t.Format("02-Jan-2006"))
+		uiElements.DateEntry.SetText(t.Format("02-Jan-2006"))
 	})
 
 	form := &widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "From (Capital Case)", Widget: fromEntry},
-			{Text: "To (Capital Case)", Widget: toEntry},
-			{Text: "Date Of Journey (Choose From Calender)", Widget: dateEntry},
+			{Text: "From (Capital Case)", Widget: uiElements.FromEntry},
+			{Text: "To (Capital Case)", Widget: uiElements.ToEntry},
+			{Text: "Date Of Journey (Choose From Calender)", Widget: uiElements.DateEntry},
 			{Text: "(Only from current date to next 10 days)", Widget: calendar},
-			{Text: "Seat Count (1 to Max 4)", Widget: seatCountEntry},
-			{Text: "Seat Types (Will Prioritize Serial Wise)", Widget: seatTypesEntry},
-			{Text: "Trains (Choose only One.)", Widget: trainsEntry},
+			{Text: "Seat Count (1 to Max 4)", Widget: uiElements.SeatCountEntry},
+			{Text: "Seat Types (Will Prioritize Serial Wise)", Widget: uiElements.SeatTypesEntry},
+			{Text: "Trains (Choose only One.)", Widget: uiElements.TrainsEntry},
+			{Text: "Your email address", Widget: uiElements.EmailEntry},
 		},
 	}
 
+	submitButton := getSubmitButton()
+
 	submitButton.OnTapped = func() {
-		handlers.HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, submitButton, window)
+		handlers.HandleFormSubmission(uiElements, submitButton)
 	}
 
 	return container.NewVBox(
@@ -69,7 +87,7 @@ func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, t
 	)
 }
 
-func GetSubmitButton() *widget.Button {
+func getSubmitButton() *widget.Button {
 	submitButton := widget.NewButton("Start Search", func() {})
 	return submitButton
 }

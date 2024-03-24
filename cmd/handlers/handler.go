@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"Rail-Ticket-Notifier/internal/arguments"
+	"Rail-Ticket-Notifier/internal/models"
 	"Rail-Ticket-Notifier/internal/notifier"
 	"Rail-Ticket-Notifier/internal/search"
-	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"io"
@@ -15,12 +15,12 @@ import (
 	"time"
 )
 
-func HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry, submitButton *widget.Button, window fyne.Window) bool {
+func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.Button) bool {
 	// Disable the submit button
 	submitButton.Disable()
 
 	// Attempt to parse seatCount to uint
-	seatCountVal, err := strconv.ParseUint(seatCountEntry.Text, 10, 32)
+	seatCountVal, err := strconv.ParseUint(uiElements.SeatCountEntry.Text, 10, 32)
 	if err != nil {
 		log.Println("Error parsing seatCount:", err)
 		return false
@@ -28,12 +28,13 @@ func HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTyp
 
 	// Update global variables in the arguments package
 	arguments.UpdateArguments(
-		fromEntry.Text,
-		toEntry.Text,
-		dateEntry.Text,
+		uiElements.FromEntry.Text,
+		uiElements.ToEntry.Text,
+		uiElements.DateEntry.Text,
+		uiElements.EmailEntry.Text,
 		uint(seatCountVal),
-		strings.Split(seatTypesEntry.Text, ","),
-		strings.Split(trainsEntry.Text, ","),
+		strings.Split(uiElements.SeatTypesEntry.Text, ","),
+		strings.Split(uiElements.TrainsEntry.Text, ","),
 	)
 
 	// Proceed with your application logic in a separate goroutine
@@ -44,14 +45,14 @@ func HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTyp
 	success := <-successChan
 	if success {
 
-		dialog.ShowInformation("Success", "Operation completed successfully. Application will automatically close in 10 secs.\n"+
-			" Go to the opened tab and finish your purchase. Thanks for using the app!", window)
+		dialog.ShowInformation("Success", "Operation completed successfully, an email has been sent to you\n. Application will automatically close in 10 secs.\n"+
+			" Go to the opened tab and finish your purchase. Thanks for using the app!", uiElements.Window)
 		log.Println("Success!")
 		time.Sleep(10 * time.Second)
 		os.Exit(0)
 		return true
 	} else {
-		dialog.ShowInformation("Failed", "Operation Failed. Please try again!", window)
+		dialog.ShowInformation("Failed", "Operation Failed. Please try again!", uiElements.Window)
 		log.Println("Operation failed.")
 		time.Sleep(5 * time.Second)
 		// Terminate the program

@@ -7,18 +7,20 @@ import (
 )
 
 var (
-	FROM                 string
-	TO                   string
-	DATE                 string
-	SEAT_COUNT           uint
-	SEAT_TYPE_ARRAY      = []string{"SNIGDHA", "S_CHAIR"}
-	SPECIFIC_TRAIN_ARRAY = []string{"SONAR"} //{"SONAR", "TURNA", "SUBORNO"}
+	FROM                   string
+	TO                     string
+	DATE                   string
+	SEAT_COUNT             uint
+	SEAT_TYPE_ARRAY        = []string{"SNIGDHA", "S_CHAIR"}
+	SPECIFIC_TRAIN_ARRAY   = []string{"SONAR"} //{"SONAR", "TURNA", "SUBORNO"}
+	RECEIVER_EMAIL_ADDRESS string
 )
 
 func init() {
 	flag.StringVar(&FROM, "from", "Chattogram", "From city")
 	flag.StringVar(&TO, "to", "Dhaka", "To city")
 	flag.StringVar(&DATE, "date", "28-Mar-2024", "Date of travel")
+	flag.StringVar(&RECEIVER_EMAIL_ADDRESS, "email", "minhaz725@gmail.com", "Email address")
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
 
 	flag.Func("seatTypes", "Seat types", func(s string) error {
@@ -34,10 +36,11 @@ func init() {
 	flag.Parse()
 }
 
-func UpdateArguments(from, to, date string, seatCount uint, seatTypes, trains []string) {
+func UpdateArguments(from, to, date, email string, seatCount uint, seatTypes, trains []string) {
 	FROM = from
 	TO = to
 	DATE = date
+	RECEIVER_EMAIL_ADDRESS = email
 	SEAT_COUNT = seatCount
 	SEAT_TYPE_ARRAY = seatTypes
 	SPECIFIC_TRAIN_ARRAY = trains

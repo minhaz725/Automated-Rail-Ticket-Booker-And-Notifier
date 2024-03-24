@@ -62,7 +62,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 		//renderedHTML := printHtml(err, doc)
 		//generateHtmlFile(err, renderedHTML)
 
-		messageBody := "Follow this URL to purchase: " + url + "\n"
+		messageBody := ""
 		showTrain := false
 		specificTrain := false
 		selectedSpecificTrain := ""
@@ -85,28 +85,27 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			trainName := ""
 			if showTrain {
 				trainName = element.Find(".trip-name h2").Text()
-				//fmt.Println("Train Name:", trainName)
-				messageBody = messageBody + "Train Name:" + trainName + "\n"
 			}
 
 			// Extract the seat numbers
 			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
-				//if specificTrain {
-				//	return
-				//}
+
 				seatCountStr := seatElement.Text()
 				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
 				if uint(seatCount) >= arguments.SEAT_COUNT {
-					//fmt.Println("Seat Count:", seatCount)
+
 					for _, specificTrainName := range arguments.SPECIFIC_TRAIN_ARRAY {
 						// Check if trainName contains the specific train name
 						if strings.Contains(trainName, specificTrainName) {
 							specificTrain = true
 							selectedSpecificTrain = specificTrainName
-							//return
+							messageBody = messageBody + "Train Name:" + trainName + "\n"
+							messageBody = messageBody + "Seat Class:" + arguments.SEAT_TYPE_ARRAY[0] + "\n"
+							messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
+							messageBody = messageBody + "Go to the opened tab in your browser and complete purchase." + "\n"
+							//todo fix redundant calls by adding return
 						}
 					}
-					messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
 				}
 			})
 		})

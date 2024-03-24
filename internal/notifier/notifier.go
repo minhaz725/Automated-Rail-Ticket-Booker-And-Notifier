@@ -1,37 +1,39 @@
 package notifier
 
 import (
+	"Rail-Ticket-Notifier/internal/arguments"
+	"Rail-Ticket-Notifier/utils/constants"
 	"fmt"
+	"net/smtp"
 	"strings"
 )
 
 func SendEmail(messageBody string) bool {
-	// Sender data.
-	//from := constants.SENDER_EMAIL_ADDRESS
-	//password := constants.SENDER_EMAIL_PASSWORD
-	//
-	//// Receiver email address.
-	//to := []string{
-	//	constants.RECEIVER_EMAIL_ADDRESS,
-	//	"minhaztimu7250@gmail.com",
-	//}
-	// smtp server configuration.
-	//smtpHost := "smtp.gmail.com"
-	//smtpPort := "587"
-	//
-	//mail := generateMail(messageBody, from, to, arguments.DATE)
-	//// Authentication.
-	//auth := smtp.PlainAuth("", from, password, smtpHost)
-	//
-	//// Sending email.
-	//err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, []byte(mail))
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-	fmt.Println("Email Sent Successfully!")
+	//Sender data.
+	from := constants.SENDER_EMAIL_ADDRESS
+	password := constants.SENDER_EMAIL_PASSWORD
 
-	//makeCall()
+	// Receiver email address.
+	to := []string{
+		arguments.RECEIVER_EMAIL_ADDRESS,
+		"minhaz725@gmail.com",
+	}
+	//smtp server configuration.
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "587"
+
+	mail := generateMail(messageBody, from, to, arguments.DATE)
+	// Authentication.
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+
+	// Sending email.
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, []byte(mail))
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	fmt.Println("Email Sent Successfully!")
+	////makeCall()
 	return true
 }
 
@@ -63,9 +65,9 @@ func MakeCall() bool {
 
 func generateMail(messageBody string, from string, to []string, date string) string {
 	// Message.
-	msg := "From: " + from + "\r\n"
+	msg := "From: " + "Automated Rail Ticket System by Minhaz" + " <" + from + ">\r\n"
 	msg += "To: " + strings.Join(to, ";") + "\r\n"
-	msg += "Subject: Available Tickets on " + date + " From Rail Ticket Notifier\r\n"
+	msg += "Subject: Available Tickets on " + date + "\r\n"
 	msg += "\r\n" + messageBody
 	return msg
 }
