@@ -8,6 +8,8 @@ const (
 	CLASS_KEY             = "&class="
 	DEBUG_CHROME_URL      = "http://localhost:9222"
 	SENDER_EMAIL_ADDRESS  = "minhaztimu7250@gmail.com"
+	SENDER_EMAIL_NAME     = "Automated Rail Ticket System by Minhaz"
+	OWNER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
 	SEARCH_DELAY_IN_SEC   = 2
 	INTRO_MSG             = "" +

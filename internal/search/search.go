@@ -20,6 +20,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	selectedSpecificTrain := ""
 	showTrain := false
 	specificTrain := false
+	messageBodyUpdated := false
 	messageBody := ""
 
 	for {
@@ -102,10 +103,14 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 						if strings.Contains(trainName, specificTrainName) {
 							specificTrain = true
 							selectedSpecificTrain = specificTrainName
-							messageBody = messageBody + "Train Name:" + trainName + "\n"
-							messageBody = messageBody + "Seat Class:" + arguments.SEAT_TYPE_ARRAY[0] + "\n"
-							messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
-							messageBody = messageBody + "Go to the opened tab in your browser and complete purchase." + "\n"
+							if !messageBodyUpdated {
+								messageBody = messageBody + "Train Name:" + trainName + "\n"
+								messageBody = messageBody + "Seat Class:" + arguments.SEAT_TYPE_ARRAY[0] + "\n"
+								messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
+								messageBody = messageBody + "Go to the opened tab in your browser and complete purchase." + "\n"
+								messageBodyUpdated = true
+							}
+
 							//todo fix redundant calls by adding return
 						}
 					}

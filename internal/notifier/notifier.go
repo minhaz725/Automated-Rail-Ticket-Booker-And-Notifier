@@ -16,7 +16,7 @@ func SendEmail(messageBody string) bool {
 	// Receiver email address.
 	to := []string{
 		arguments.RECEIVER_EMAIL_ADDRESS,
-		"minhaz725@gmail.com",
+		constants.OWNER_EMAIL_ADDRESS,
 	}
 	//smtp server configuration.
 	smtpHost := "smtp.gmail.com"
@@ -65,7 +65,7 @@ func MakeCall() bool {
 
 func generateMail(messageBody string, from string, to []string, date string) string {
 	// Message.
-	msg := "From: " + "Automated Rail Ticket System by Minhaz" + " <" + from + ">\r\n"
+	msg := "From: " + constants.SENDER_EMAIL_NAME + " <" + from + ">\r\n"
 	msg += "To: " + strings.Join(to, ";") + "\r\n"
 	msg += "Subject: Available Tickets on " + date + "\r\n"
 	msg += "\r\n" + messageBody
