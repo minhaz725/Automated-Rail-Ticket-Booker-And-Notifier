@@ -8,15 +8,17 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	xwidget "fyne.io/x/fyne/widget"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func InitializeUIAndForm() (fyne.Window, *widget.Label, *widget.Entry, *widget.Entry, *widget.Entry, *widget.Entry, *widget.Entry, *widget.Entry) {
 	a := app.New()
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
-	window.Resize(fyne.NewSize(500, 400))
+	window.Resize(fyne.NewSize(800, 600))
 	introLabel := widget.NewLabel(constants.INTRO_MSG)
 	// Create form fields with default values
 	fromEntry := widget.NewEntry()
@@ -40,14 +42,20 @@ func InitializeUIAndForm() (fyne.Window, *widget.Label, *widget.Entry, *widget.E
 }
 
 func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry, submitButton *widget.Button) *fyne.Container {
+
+	calendar := GetCalendar(func(t time.Time) {
+		dateEntry.SetText(t.Format("02-Jan-2006"))
+	})
+
 	form := &widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "From", Widget: fromEntry},
-			{Text: "To", Widget: toEntry},
-			{Text: "Date", Widget: dateEntry},
-			{Text: "Seat Count", Widget: seatCountEntry},
-			{Text: "Seat Types", Widget: seatTypesEntry},
-			{Text: "Trains", Widget: trainsEntry},
+			{Text: "From (Word Case)", Widget: fromEntry},
+			{Text: "To (Word Case)", Widget: toEntry},
+			{Text: "Date Of Journey (Choose From Calender)", Widget: dateEntry},
+			{Text: "(Only from current date to next 10 days)", Widget: calendar},
+			{Text: "Seat Count (1 to Max 4)", Widget: seatCountEntry},
+			{Text: "Seat Types (Will Prioritize Serial Wise)", Widget: seatTypesEntry},
+			{Text: "Trains (Choose only One.)", Widget: trainsEntry},
 		},
 	}
 
@@ -64,4 +72,9 @@ func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, t
 func GetSubmitButton() *widget.Button {
 	submitButton := widget.NewButton("Start Search", func() {})
 	return submitButton
+}
+
+func GetCalendar(onSelected func(time.Time)) *xwidget.Calendar {
+	startingDate := time.Now()
+	return xwidget.NewCalendar(startingDate, onSelected)
 }

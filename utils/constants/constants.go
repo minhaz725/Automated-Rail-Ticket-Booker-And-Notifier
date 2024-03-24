@@ -11,9 +11,10 @@ const (
 	SENDER_EMAIL_PASSWORD  = "akey whwp pnul eskw"
 	RECEIVER_EMAIL_ADDRESS = "atiabintiaziz@gmail.com"
 	SEARCH_DELAY_IN_SEC    = 2
-	INTRO_MSG              = "	Press Ctrl + R to open Run.\n" +
-		" 	Paste chrome.exe --remote-debugging-port=9222 and hit enter.\n" +
-		" 	Chrome will open.\n        " +
-		"   Login to ticket site. (https://eticket.railway.gov.bd/)\n        " +
-		"   Fill below form and hit search button to start searching."
+	INTRO_MSG              = "\t\t\t\t\t\t\t\t**Instructions** \n" +
+		"\t\t\t\t\t Press Ctrl + R to open Run.\n" +
+		"\t\t\t\t\t Paste chrome.exe --remote-debugging-port=9222 and hit enter.\n" +
+		"\t\t\t\t\t Chrome will open.\n        " +
+		"\t\t\t\t\t Login to ticket site. (https://eticket.railway.gov.bd/)\n" +
+		"\t\t\t\t\t Fill below form and hit search button to start searching."
 )
