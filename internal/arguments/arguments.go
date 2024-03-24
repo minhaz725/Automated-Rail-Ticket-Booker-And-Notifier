@@ -13,7 +13,7 @@ var (
 	DATE                   string
 	SEAT_COUNT             uint
 	PHONE_NUMBER           string
-	SEAT_TYPE_ARRAY        = []string{"SNIGDHA", "S_CHAIR"}
+	SEAT_TYPE_ARRAY        = []string{"SNIGDHA", "S_CHAIR", "F_BERTH"}
 	SPECIFIC_TRAIN_ARRAY   = []string{"SUBORNO"} //{"SONAR", "TURNA", "SUBORNO"}
 	RECEIVER_EMAIL_ADDRESS string
 	GO_TO_BOOK_PAGE        uint

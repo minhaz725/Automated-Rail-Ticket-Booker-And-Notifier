@@ -8,7 +8,6 @@ import (
 	"Rail-Ticket-Notifier/utils/constants"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-	"io"
 	"log"
 	"os"
 	"strconv"
@@ -63,16 +62,16 @@ func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.B
 }
 
 func handleCoreOperation(successChan chan bool) {
-	seatBooker, _ := os.Open("seatBooker.js")
-	defer seatBooker.Close()
-
-	seatBookerFunctionInBytes, _ := io.ReadAll(seatBooker)
-
-	_, send := search.PerformSearch(arguments.GenerateURL(), string(seatBookerFunctionInBytes))
+	//seatBooker, _ := os.Open("seatBooker.js")
+	//defer seatBooker.Close()
+	//todo read js segment from file
+	//seatBookerFunctionInBytes, _ := io.ReadAll(seatBooker)
+	seatTypeValidate()
+	messageBody, send := search.PerformSearch(arguments.GenerateURL(), "string(seatBookerFunctionInBytes)")
 	mailSuccess := false
 	callSuccess := false
 	if send {
-		mailSuccess = true //notifier.SendEmail(messageBody)
+		mailSuccess = notifier.SendEmail(messageBody)
 		callSuccess = notifier.MakeCall()
 	}
 	if mailSuccess && callSuccess {
@@ -81,5 +80,18 @@ func handleCoreOperation(successChan chan bool) {
 	} else {
 		// Send failure status through the channel
 		successChan <- false
+	}
+}
+
+func seatTypeValidate() {
+	if len(arguments.SEAT_TYPE_ARRAY) < 3 {
+		// Append "SNIGDHA" and "S_CHAIR" to the slice
+		var newArray []string
+		for _, seatType := range arguments.SEAT_TYPE_ARRAY {
+			if seatType != " " {
+				newArray = append(newArray, seatType)
+			}
+		}
+		arguments.SEAT_TYPE_ARRAY = append(arguments.SEAT_TYPE_ARRAY, "SNIGDHA", "S_CHAIR", "AC_B")
 	}
 }

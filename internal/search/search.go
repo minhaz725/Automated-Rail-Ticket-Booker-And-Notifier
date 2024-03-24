@@ -142,6 +142,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
                 let seatType;
                 if (i == 0) seatType = "` + arguments.SEAT_TYPE_ARRAY[0] + `";
                 if (i == 1) seatType = "` + arguments.SEAT_TYPE_ARRAY[1] + `";
+				if (i == 2) seatType = "` + arguments.SEAT_TYPE_ARRAY[2] + `";
                 //if(i==2) seatType = '` + /*constants.SEAT_TYPE_ARRAY[2] +*/ `'
                 let seatDiv = seatClassDivs.find((div) => {
                 let seatNameSpan = div.querySelector(".seat-class-name");
