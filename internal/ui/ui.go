@@ -41,7 +41,7 @@ func InitializeUIAndForm() (fyne.Window, *widget.Label, *widget.Entry, *widget.E
 	return window, introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry
 }
 
-func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry, submitButton *widget.Button) *fyne.Container {
+func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry *widget.Entry, submitButton *widget.Button, window fyne.Window) *fyne.Container {
 
 	calendar := GetCalendar(func(t time.Time) {
 		dateEntry.SetText(t.Format("02-Jan-2006"))
@@ -49,8 +49,8 @@ func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, t
 
 	form := &widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "From (Word Case)", Widget: fromEntry},
-			{Text: "To (Word Case)", Widget: toEntry},
+			{Text: "From (Capital Case)", Widget: fromEntry},
+			{Text: "To (Capital Case)", Widget: toEntry},
 			{Text: "Date Of Journey (Choose From Calender)", Widget: dateEntry},
 			{Text: "(Only from current date to next 10 days)", Widget: calendar},
 			{Text: "Seat Count (1 to Max 4)", Widget: seatCountEntry},
@@ -60,7 +60,7 @@ func CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, t
 	}
 
 	submitButton.OnTapped = func() {
-		handlers.HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, submitButton)
+		handlers.HandleFormSubmission(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, submitButton, window)
 	}
 
 	return container.NewVBox(

@@ -10,7 +10,7 @@ func main() {
 
 	window, introLabel, fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry := ui.InitializeUIAndForm()
 
-	form := ui.CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, ui.GetSubmitButton())
+	form := ui.CreateForm(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, ui.GetSubmitButton(), window)
 
 	window.SetContent(container.NewVBox(introLabel, form))
 	window.ShowAndRun()
