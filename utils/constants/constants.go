@@ -1,20 +1,34 @@
 package constants
 
 const (
-	BASE_URL               = "https://eticket.railway.gov.bd/booking/train/search/?"
-	DEBUG_CHROME_URL       = "http://localhost:9222"
-	FROM                   = "fromcity=Dhaka"
-	TO                     = "&tocity=Cox%27s%20Bazar"
-	DATE                   = "&doj=17-Feb-2024"
-	CLASS                  = "&class=S_CHAIR"
-	SEAT_COUNT             = 2
-	SENDER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
-	SENDER_EMAIL_PASSWORD  = "akey whwp pnul eskw"
-	RECEIVER_EMAIL_ADDRESS = "atiabintiaziz@gmail.com"
-	SEARCH_DELAY_IN_SEC    = 2
-	SPECIFIC_TRAIN         = "PARJOTAK EXPRESS (816)"
-	SEAT_TYPE              = "SNIGDHA"
-	COACH_NUMB             = "SCHA"
-	SEAT_ONE_NUMB          = "-16"
-	SEAT_TWO_NUMB          = "-17"
+	BASE_URL              = "https://eticket.railway.gov.bd/booking/train/search/?"
+	FROM_KEY              = "fromcity="
+	TO_KEY                = "&tocity="
+	DATE_KEY              = "&doj="
+	CLASS_KEY             = "&class="
+	DEBUG_CHROME_URL      = "http://localhost:9222"
+	SENDER_EMAIL_ADDRESS  = "minhaztimu7250@gmail.com"
+	SENDER_EMAIL_NAME     = "Automated Rail Ticket System by Minhaz"
+	OWNER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
+	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
+	SEARCH_DELAY_IN_SEC   = 2
+	INTRO_MSG             = "" +
+		"\t\t\t\t\t\t\t\t**** INSTRUCTIONS **** \n" +
+		"\t\t\t\t\t -Press Ctrl + R to open Run.\n" +
+		"\t\t\t\t\t -Paste chrome.exe --remote-debugging-port=9222 and hit enter.Chrome will open.\n" +
+		"\t\t\t\t\t -Login to ticket site. (https://eticket.railway.gov.bd/)\n" +
+		"\t\t\t\t\t -Fill below form and hit search button to start searching.\n" +
+		"\t\t\t\t\t -Please note that there's no input validation currently, so check spellings carefully.\n" +
+		"\t\t\t\t\t -Choose only one train, if you want options then run the app again and choose another train.\n" +
+		"\t\t\t\t\t -Cross out the 'Go to booking page' checkbox if you want to review seats before book.\n" +
+		"\t\t\t\t\t -If you plan to purchase at ticket release day (10 days prior): \n" +
+		"\t\t\t\t\t\t\t -start app at 2.00PM you want to travel Purbanchal.\n" +
+		"\t\t\t\t\t\t\t -start app at 8.00AM you want to travel Poshchimanchal.\n" +
+		"\t\t\t\t\t\t\t -start app at anytime if it's between 9 to 1 day before journey.\n"
+	OUTRO_SUCCESS_MSG = "" +
+		"Operation completed successfully, an email has been sent to you.\n" +
+		"Go to the opened tab and finish your purchase.\n" +
+		"Application will automatically close in 10 seconds.\n" +
+		"Thanks for using the app, have a nice journey!"
+	OUTRO_FAILURE_MSG = "Operation Failed. Please try again!"
 )
