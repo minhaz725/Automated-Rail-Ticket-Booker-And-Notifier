@@ -6,6 +6,8 @@ import (
 )
 
 // sample arg: go run . -from "Khulna" -to "Dhaka" -date "26-Mar-2024" -seatCount 4 -seatTypes "SNIGDHA,S_CHAIR" -trains "TURNA,SUNDARBAN,BAZAR"
+// fyne package -os windows -icon C:\Users\minha\go\src\Rail-Ticket-Notifier\static\logo.png -src cmd/main
+
 func main() {
 
 	elementsOfUI := ui.InitializeUIAndForm()

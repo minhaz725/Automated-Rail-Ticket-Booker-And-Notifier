@@ -10,8 +10,6 @@ import (
 
 func SendEmail(messageBody string) bool {
 	//Sender data.
-	from := constants.SENDER_EMAIL_ADDRESS
-	password := constants.SENDER_EMAIL_PASSWORD
 
 	// Receiver email address.
 	to := []string{
@@ -22,12 +20,12 @@ func SendEmail(messageBody string) bool {
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	mail := generateMail(messageBody, from, to, arguments.DATE)
+	mail := generateMail(messageBody, to)
 	// Authentication.
-	auth := smtp.PlainAuth("", from, password, smtpHost)
+	auth := smtp.PlainAuth("", constants.SENDER_EMAIL_ADDRESS, constants.SENDER_EMAIL_PASSWORD, smtpHost)
 
 	// Sending email.
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, []byte(mail))
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, constants.SENDER_EMAIL_ADDRESS, to, []byte(mail))
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -63,11 +61,11 @@ func MakeCall() bool {
 	return true
 }
 
-func generateMail(messageBody string, from string, to []string, date string) string {
+func generateMail(messageBody string, to []string) string {
 	// Message.
-	msg := "From: " + constants.SENDER_EMAIL_NAME + " <" + from + ">\r\n"
+	msg := "From: " + constants.SENDER_EMAIL_NAME + " <" + arguments.FROM + ">\r\n"
 	msg += "To: " + strings.Join(to, ";") + "\r\n"
-	msg += "Subject: Available Tickets on " + date + "\r\n"
+	msg += "Subject: Available Tickets on " + arguments.DATE + "\r\n"
 	msg += "\r\n" + messageBody
 	return msg
 }
