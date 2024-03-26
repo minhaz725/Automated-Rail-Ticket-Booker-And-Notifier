@@ -2,6 +2,7 @@ package search
 
 import (
 	"Rail-Ticket-Notifier/internal/arguments"
+	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
 	"fmt"
@@ -18,14 +19,14 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	attemptNo := 0
 	openBrowser := false
 	selectedSpecificTrain := ""
+	selectedClass := ""
+	var availableSeatClassArray []string
 	showTrain := false
-	specificTrain := false
 	messageBodyUpdated := false
 	messageBody := ""
 
 	for {
 		fmt.Println("Search Started")
-		//start chrome.exe --remote-debugging-port=9222
 		var initialCtx context.Context
 		var cancel context.CancelFunc
 		var ctx context.Context
@@ -52,7 +53,6 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 
 		chromedp.Sleep(2 * time.Second)
 
-		fmt.Println("Search Ended")
 		// Extract the page content after it has loaded
 		var pageContent string
 		if err := chromedp.Run(ctx, chromedp.InnerHTML("html", &pageContent)); err != nil {
@@ -67,57 +67,51 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 
 		//renderedHTML := printHtml(err, doc)
 		//generateHtmlFile(err, renderedHTML)
+		if !openBrowser {
+			doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
 
-		doc.Find(".single-trip-wrapper").Each(func(i int, element *goquery.Selection) {
-			if openBrowser {
-				return
-			}
-			// Filter train by Minimum number of seats
-			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
-				//if specificTrain {
-				//	return
-				//}
-				seatCountStr := seatElement.Text()
-				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) >= arguments.SEAT_COUNT {
-					showTrain = true
+				trainName := ""
+				trainName = element.Find(".trip-name h2").Text()
+				if !strings.Contains(trainName, arguments.SPECIFIC_TRAIN_ARRAY[0]) {
 					return
 				}
-			})
 
-			// Extract the train name
-			trainName := ""
-			if showTrain {
-				trainName = element.Find(".trip-name h2").Text()
-			}
-
-			// Extract the seat numbers
-			element.Find(".seat-available-wrap .all-seats").Each(func(j int, seatElement *goquery.Selection) {
-
-				seatCountStr := seatElement.Text()
-				seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-				if uint(seatCount) >= arguments.SEAT_COUNT {
-
-					for _, specificTrainName := range arguments.SPECIFIC_TRAIN_ARRAY {
-						// Check if trainName contains the specific train name
-						if strings.Contains(trainName, specificTrainName) {
-							specificTrain = true
-							selectedSpecificTrain = specificTrainName
-							if !messageBodyUpdated {
-								messageBody = messageBody + "Train Name:" + trainName + "\n"
-								messageBody = messageBody + "Seat Class:" + arguments.SEAT_TYPE_ARRAY[0] + "\n"
-								messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
-								messageBody = messageBody + "Go to the opened tab in your browser and complete purchase." + "\n"
-								messageBodyUpdated = true
+				classFound := false
+				element.Find(".seat-classes-row .seat-class-name, .seat-classes-row .all-seats").Each(func(i int, s *goquery.Selection) {
+					// Check if the current element is a .seat-class-name or .all-seats
+					className := ""
+					if s.HasClass("seat-class-name") {
+						// This is a .seat-class-name element
+						className = s.Text()
+						for k := 0; k < len(arguments.SEAT_TYPE_ARRAY); k++ {
+							if className == arguments.SEAT_TYPE_ARRAY[k] {
+								fmt.Print("Class Name:", className)
+								availableSeatClassArray = append(availableSeatClassArray, className)
+								classFound = true
 							}
-
-							//todo fix redundant calls by adding return
 						}
 					}
-				}
+					if s.HasClass("all-seats") {
+						// This is an .all-seats element
+						//fmt.Println(className)
+						if classFound {
+							seatCountStr := s.Text()
+							seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
+							fmt.Println(" Seat Count:", seatCount)
+							classFound = false
+							if uint(seatCount) >= arguments.SEAT_COUNT {
+								showTrain = true
+								selectedSpecificTrain = trainName
+								return
+							} else {
+								availableSeatClassArray = availableSeatClassArray[:len(availableSeatClassArray)-1]
+							}
+						}
+
+					}
+				})
 			})
-		})
-		fmt.Println(messageBody)
+		}
 
 		jsCode := `(() => {
             const headers = Array.from(document.querySelectorAll("h2"));
@@ -133,27 +127,18 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
                 appSingleTrip.querySelectorAll(".single-seat-class")
             );
 
-            let seatTypeArrayLength = parseInt(
-                "` + strconv.Itoa(len(arguments.SEAT_TYPE_ARRAY)) + `"
-            );
             let bookNowBtn;
 
-            for (let i = 0; i < seatTypeArrayLength; i++) {
-                let seatType;
-                if (i == 0) seatType = "` + arguments.SEAT_TYPE_ARRAY[0] + `";
-                if (i == 1) seatType = "` + arguments.SEAT_TYPE_ARRAY[1] + `";
-				if (i == 2) seatType = "` + arguments.SEAT_TYPE_ARRAY[2] + `";
-                //if(i==2) seatType = '` + /*constants.SEAT_TYPE_ARRAY[2] +*/ `'
-                let seatDiv = seatClassDivs.find((div) => {
-                let seatNameSpan = div.querySelector(".seat-class-name");
+			let seatType;
+            seatType = "` + selectedClass + `";
+            let seatDiv = seatClassDivs.find((div) => {
+            	let seatNameSpan = div.querySelector(".seat-class-name");
                 return seatNameSpan && seatNameSpan.innerText.trim() === seatType;
-                });
-                //throw new Error('Seat class div not found');
+            });
+            //throw new Error('Seat class div not found');
 
-                // Find and click the book now button within the specific seat class div
-                bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
-                if (bookNowBtn != null) break;
-            }
+             // Find and click the book now button within the specific seat class div
+             bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
 
             if (!bookNowBtn)
                 throw new Error("Book now button not found for All given Types" + seatType);
@@ -256,8 +241,20 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
             })();
 		`
 
-		if showTrain && specificTrain {
+		if showTrain {
 			if openBrowser == false {
+				fmt.Println(availableSeatClassArray)
+				selectedClass = utils.FindFirstMatch(availableSeatClassArray, arguments.SEAT_TYPE_ARRAY)
+				if selectedClass == "" {
+					log.Fatal("class selection error")
+				}
+				if !messageBodyUpdated {
+					messageBody = messageBody + "Train Name:" + selectedSpecificTrain + "\n"
+					messageBody = messageBody + "Seat Class:" + selectedClass + "\n"
+					//messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
+					messageBody = messageBody + "Go to the opened tab in your browser and complete purchase." + "\n"
+					messageBodyUpdated = true
+				}
 				openBrowser = true
 				continue
 				// open browser in next iteration if conditions are matched
@@ -279,7 +276,10 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 		cancel()
 
 		attemptNo++
+		fmt.Println("Search Ended")
 		fmt.Println("Attempt Number: ", attemptNo)
+		fmt.Println()
+
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
 }
