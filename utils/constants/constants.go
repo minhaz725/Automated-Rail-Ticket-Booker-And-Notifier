@@ -13,12 +13,14 @@ const (
 	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
 	SEARCH_DELAY_IN_SEC   = 2
 	INTRO_MSG             = "" +
-		"\t\t\t\t\t**** INSTRUCTIONS **** \n" +
-		" -Press Ctrl + R to open Run.\n" +
-		" -Paste chrome.exe --remote-debugging-port=9222 and hit enter.Chrome will open.\n" +
-		" -Login to ticket site. (https://eticket.railway.gov.bd/)\n" +
-		" -Fill below form and hit search button to start searching.\n" +
-		" -Please note that there's no input validation currently, so check spellings carefully.\n" +
+		"\t\t\t\t**** INSTRUCTIONS TO RUN**** \n\n" +
+		" -Close Chrome if already opened.\n" +
+		" -Press Windows key + R to open Run.\n" +
+		" -Paste chrome.exe --remote-debugging-port=9222 and hit enter. It will open Chrome.\n" +
+		" -Login to ticket site. (https://eticket.railway.gov.bd/), if already logged in, skip.\n" +
+		" -Fill below form and hit search button to start searching.\n\n" +
+		"\t\t\t\t\t****** NOTES ****** \n\n" +
+		" -There's no input validation currently, so check spellings carefully.\n" +
 		" -Choose only one train, if you want options then run the app again and choose another train.\n" +
 		" -Cross out the 'Go to booking page' checkbox if you want to review seats before book.\n" +
 		" -If you plan to purchase at ticket release day (10 days prior): \n" +
