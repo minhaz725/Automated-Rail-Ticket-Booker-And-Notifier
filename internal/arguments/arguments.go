@@ -13,22 +13,22 @@ var (
 	DATE                   string
 	SEAT_COUNT             uint
 	PHONE_NUMBER           string
-	SEAT_TYPE_ARRAY        = []string{"F_BERTH", "AC_B"} //, "S_CHAIR", "F_BERTH"}
-	SPECIFIC_TRAIN_ARRAY   = []string{"TURNA"}           //{"SONAR", "TURNA", "SUBORNO"}
+	SEAT_TYPE_ARRAY        = []string{"AC_S", "SNIGDHA"} //, "S_CHAIR", "F_BERTH"}
+	SPECIFIC_TRAIN_ARRAY   = []string{"BANALATA"}        //{"SONAR", "TURNA", "SUBORNO"}
 	RECEIVER_EMAIL_ADDRESS string
 	GO_TO_BOOK_PAGE        uint
 )
 
 func init() {
 	now := time.Now()
-	twoDaysLater := now.AddDate(0, 0, 9)
+	twoDaysLater := now.AddDate(0, 0, 10)
 	formattedDateAfterTwoDays := twoDaysLater.Format("02-Jan-2006")
 
-	flag.StringVar(&FROM, "from", "Dhaka", "From city")
-	flag.StringVar(&TO, "to", "Chattogram", "To city")
+	flag.StringVar(&FROM, "from", "Chapai Nawabganj", "From city")
+	flag.StringVar(&TO, "to", "Dhaka", "To city")
 	flag.StringVar(&PHONE_NUMBER, "phone", "+8801555555555", "Phone")
 	flag.StringVar(&DATE, "date", formattedDateAfterTwoDays, "Date of travel")
-	flag.StringVar(&RECEIVER_EMAIL_ADDRESS, "email", "atiabintiaziz@gmail.com", "Email address")
+	flag.StringVar(&RECEIVER_EMAIL_ADDRESS, "email", "ali.bgd0102@gmail.com", "Email address")
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
 	flag.UintVar(&GO_TO_BOOK_PAGE, "purchasePage", 1, "Go to purchase page")
 
