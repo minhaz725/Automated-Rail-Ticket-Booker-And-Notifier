@@ -46,8 +46,21 @@ func init() {
 }
 
 func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string) {
-	FROM = from
-	TO = to
+	if from == "Chapai Nawabganj" {
+		FROM = "Chapai%20Nawabganj"
+	} else if from == "Cox's Bazar" {
+		FROM = "Cox%27s%20Bazar"
+	} else {
+		FROM = from
+	}
+
+	if to == "Chapai Nawabganj" {
+		TO = "Chapai%20Nawabganj"
+	} else if to == "Cox's Bazar" {
+		TO = "Cox%27s%20Bazar"
+	} else {
+		TO = to
+	}
 	DATE = date
 	RECEIVER_EMAIL_ADDRESS = email
 	SEAT_COUNT = seatCount

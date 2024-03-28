@@ -39,15 +39,18 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			ctx, cancel = chromedp.NewContext(initialCtx)
 		}
 
-		if err :=
-			chromedp.Run(ctx,
-				chromedp.Navigate(url),
-				chromedp.Sleep(3*time.Second),
-				chromedp.WaitVisible(`button.modify_search.mod_search`),
-				chromedp.WaitVisible(`/privacy-policy`)); err != nil {
-			log.Fatal(err)
-		}
+		err := chromedp.Run(ctx,
+			chromedp.Navigate(url),
+			chromedp.Sleep(3*time.Second),
+			chromedp.WaitVisible(`button.modify_search.mod_search`),
+			chromedp.WaitVisible(`/privacy-policy`))
 
+		if err != nil {
+			cancel()
+			log.Println("Can't Connect to Network, Retrying...")
+			time.Sleep(3 * time.Second)
+			continue
+		}
 		// Wait for some time (adjust this as needed) to ensure the page has loaded
 		// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
 
@@ -75,7 +78,8 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 				if !strings.Contains(trainName, arguments.SPECIFIC_TRAIN_ARRAY[0]) {
 					return
 				}
-
+				fmt.Println("Search URL: ", url)
+				fmt.Println("Train Name:", trainName)
 				classFound := false
 				element.Find(".seat-classes-row .seat-class-name, .seat-classes-row .all-seats").Each(func(i int, s *goquery.Selection) {
 					// Check if the current element is a .seat-class-name or .all-seats
@@ -248,13 +252,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 				if selectedClass == "" {
 					log.Fatal("class selection error")
 				}
-				if !messageBodyUpdated {
-					messageBody = messageBody + "Train Name:" + selectedSpecificTrain + "\n"
-					messageBody = messageBody + "Seat Class:" + selectedClass + "\n"
-					//messageBody = messageBody + "Seat Count:" + strconv.FormatUint(seatCount, 10) + "\n"
-					messageBody = messageBody + "Go to the opened tab in your browser and complete purchase." + "\n"
-					messageBodyUpdated = true
-				}
+				messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
 				openBrowser = true
 				continue
 				// open browser in next iteration if conditions are matched
@@ -282,6 +280,16 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
+}
+
+func updateMessageBody(messageBodyUpdated bool, messageBody string, selectedSpecificTrain string, selectedClass string) (string, bool) {
+	if !messageBodyUpdated {
+		messageBody = messageBody + "Train Name:" + selectedSpecificTrain + "\n"
+		messageBody = messageBody + "Seat Class:" + selectedClass + "\n"
+		messageBody = messageBody + "Go to the opened tab in your chrome browser and complete purchase." + "\n"
+		messageBodyUpdated = true
+	}
+	return messageBody, messageBodyUpdated
 }
 
 func generateHtmlFile(err error, renderedHTML string) {
