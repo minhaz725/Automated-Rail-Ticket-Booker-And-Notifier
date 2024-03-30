@@ -17,7 +17,7 @@ import (
 )
 
 func InitializeUIAndForm() models.ElementsOfUI {
-	a := app.New()
+	a := app.NewWithID("Rail-Ticket-Notifier")
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
 	window.Resize(fyne.NewSize(800, 600))
@@ -30,24 +30,32 @@ func InitializeUIAndForm() models.ElementsOfUI {
 
 	// Create form fields with default values
 	fromEntry := widget.NewEntry()
-	fromEntry.SetText(arguments.FROM) // Default value from arguments package
+	fromEntry.SetText(a.Preferences().StringWithFallback("fromEntry", arguments.FROM))
+
 	toEntry := widget.NewEntry()
-	toEntry.SetText(arguments.TO) // Default value from arguments package
+	toEntry.SetText(a.Preferences().StringWithFallback("toEntry", arguments.TO))
+
 	dateEntry := widget.NewEntry()
-	dateEntry.SetText(arguments.DATE) // Default value from arguments package
+	dateEntry.SetText(a.Preferences().StringWithFallback("dateEntry", arguments.DATE))
+
 	seatCountEntry := widget.NewEntry()
-	seatCountEntry.SetText(strconv.Itoa(int(arguments.SEAT_COUNT))) // Convert uint to string
+	seatCountEntry.SetText(a.Preferences().StringWithFallback("seatCountEntry", strconv.Itoa(int(arguments.SEAT_COUNT))))
+
 	seatTypesEntry := widget.NewEntry()
-	seatTypesEntry.SetText(strings.Join(arguments.SEAT_TYPE_ARRAY, ",")) // Default value from arguments package
+	seatTypesEntry.SetText(a.Preferences().StringWithFallback("seatTypesEntry", strings.Join(arguments.SEAT_TYPE_ARRAY, ",")))
+
 	trainsEntry := widget.NewEntry()
-	trainsEntry.SetText(strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ","))
+	trainsEntry.SetText(a.Preferences().StringWithFallback("trainsEntry", strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ",")))
+
 	emailEntry := widget.NewEntry()
-	emailEntry.SetText(arguments.RECEIVER_EMAIL_ADDRESS)
+	emailEntry.SetText(a.Preferences().StringWithFallback("emailEntry", arguments.RECEIVER_EMAIL_ADDRESS))
+
 	phoneEntry := widget.NewEntry()
-	phoneEntry.SetText(arguments.PHONE_NUMBER)
+	phoneEntry.SetText(a.Preferences().StringWithFallback("phoneEntry", arguments.PHONE_NUMBER))
 	phoneEntry.Disable()
+
 	goToBookEntry := widget.NewCheck("Uncheck this to stay at seat selection page to manually adjust seats.", func(value bool) {})
-	goToBookEntry.SetChecked(arguments.GO_TO_BOOK_PAGE != 0)
+	goToBookEntry.SetChecked(a.Preferences().BoolWithFallback("goToBookEntry", arguments.GO_TO_BOOK_PAGE != 0))
 
 	content := container.NewVBox(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, emailEntry, phoneEntry, goToBookEntry)
 
@@ -58,6 +66,7 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	window.SetContent(scrollContainer)
 
 	uiElements := models.ElementsOfUI{
+		App:            a,
 		Window:         window,
 		FromEntry:      fromEntry,
 		ToEntry:        toEntry,

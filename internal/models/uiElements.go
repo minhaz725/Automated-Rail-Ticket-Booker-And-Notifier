@@ -6,6 +6,7 @@ import (
 )
 
 type ElementsOfUI struct {
+	App            fyne.App
 	Window         fyne.Window
 	FromEntry      *widget.Entry
 	ToEntry        *widget.Entry
