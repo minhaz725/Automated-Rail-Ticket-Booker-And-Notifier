@@ -46,8 +46,13 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			chromedp.WaitVisible(`/privacy-policy`))
 
 		if err != nil {
+			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
+				log.Println("Can't Connect to Network, check your internet. Retrying...")
+				// Handle the specific error case here
+			} else {
+				log.Println("Browser didn't start on debug mode, please read the instructions and try again...")
+			}
 			cancel()
-			log.Println("Can't Connect to Network, Retrying...")
 			time.Sleep(3 * time.Second)
 			continue
 		}

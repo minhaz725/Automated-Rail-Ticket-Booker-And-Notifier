@@ -18,13 +18,24 @@ import (
 func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.Button) bool {
 	// Disable the submit button
 	submitButton.Disable()
-
+	submitButton.SetText("Searching...")
 	// Attempt to parse seatCount to uint
 	seatCountVal, err := strconv.ParseUint(uiElements.SeatCountEntry.Text, 10, 32)
 	if err != nil {
 		log.Println("Error parsing seatCount:", err)
 		return false
 	}
+
+	// update preference for next time run
+	uiElements.App.Preferences().SetString("fromEntry", uiElements.FromEntry.Text)
+	uiElements.App.Preferences().SetString("toEntry", uiElements.ToEntry.Text)
+	uiElements.App.Preferences().SetString("dateEntry", uiElements.DateEntry.Text)
+	uiElements.App.Preferences().SetString("seatCountEntry", uiElements.SeatCountEntry.Text)
+	uiElements.App.Preferences().SetString("seatTypesEntry", uiElements.SeatTypesEntry.Text)
+	uiElements.App.Preferences().SetString("trainsEntry", uiElements.TrainsEntry.Text)
+	uiElements.App.Preferences().SetString("emailEntry", uiElements.EmailEntry.Text)
+	uiElements.App.Preferences().SetString("phoneEntry", uiElements.PhoneEntry.Text)
+	uiElements.App.Preferences().SetBool("goToBookEntry", uiElements.GoToBookEntry.Checked)
 
 	// Update global variables in the arguments package
 	arguments.UpdateArguments(
