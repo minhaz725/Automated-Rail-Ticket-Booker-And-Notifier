@@ -4,6 +4,7 @@ import (
 	"Rail-Ticket-Notifier/cmd/handlers"
 	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/internal/models"
+	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -11,6 +12,8 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	xwidget "fyne.io/x/fyne/widget"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +29,7 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	label := widget.NewLabel(constants.INTRO_MSG)
 	label.Alignment = fyne.TextAlignLeading // Set text alignment to left
 	customDialog := dialog.NewCustom("Welcome", "OK", container.NewVBox(label), window)
+	customDialog.SetOnClosed(setChromeAfterIntroOKPressed(window))
 	customDialog.Show()
 
 	// Create form fields with default values
@@ -113,6 +117,18 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 		form,
 		submitButton,
 	)
+}
+
+func setChromeAfterIntroOKPressed(window fyne.Window) func() {
+	return func() {
+		if !utils.SetupChrome(window) {
+			dialog.ShowInformation("Failed", constants.CHROME_SETUP_FAILURE_MSG, window)
+			log.Println("Chrome Setup Failed. Exiting Program")
+			time.Sleep(5 * time.Second)
+			// Terminate the program
+			os.Exit(0)
+		}
+	}
 }
 
 func getSubmitButton() *widget.Button {
