@@ -17,7 +17,7 @@ func SetupChrome(window fyne.Window) bool {
 	//dialog.ShowInformation("Setting Up", constants.CHROME_SETUP_MSG, window)
 
 	label := widget.NewLabel(constants.CHROME_SETUP_MSG)
-	customDialog := dialog.NewCustom("Setting Up Chrome, Please Wait", "Ok", container.NewVBox(label), window)
+	customDialog := dialog.NewCustom("Setting Up Chrome, Please Wait", "OK", container.NewVBox(label), window)
 	customDialog.Show()
 
 	var chromePath string
@@ -49,7 +49,7 @@ func SetupChrome(window fyne.Window) bool {
 		if debugModeCheck.StatusCode == http.StatusOK {
 			log.Println("Chrome is already running in debug mode.")
 			label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
-			customDialog.SetDismissText("Go!")
+			customDialog.SetDismissText("Continue")
 			return true
 		}
 	}
@@ -89,6 +89,6 @@ func SetupChrome(window fyne.Window) bool {
 	}
 
 	label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
-	customDialog.SetDismissText("Go!")
+	customDialog.SetDismissText("Continue")
 	return true
 }

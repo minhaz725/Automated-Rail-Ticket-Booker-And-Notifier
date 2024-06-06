@@ -45,3 +45,4 @@ and run it. Your operating system might block it for first time just click on mo
     - The program will always automatically detect empty seats and book them, so don't lose hope.
 
 ---
+**Disclaimer**: If the website gets major changes, the program won't work. I'll try to update it as soon as possible. If you face any issues or bugs, please let me know.

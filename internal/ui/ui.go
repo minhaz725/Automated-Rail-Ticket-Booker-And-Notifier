@@ -106,7 +106,7 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 			{Text: "Date Of Journey (Choose From Calender)", Widget: uiElements.DateEntry},
 			{Text: "(Only from current date to next 10 days)", Widget: calendar},
 			{Text: "Seat Count (1 to Max 4)", Widget: uiElements.SeatCountEntry},
-			{Text: "Seat Types (Prioritize Serially. All Capitals)", Widget: uiElements.SeatTypesEntry},
+			{Text: "Seat Types (Prioritize Serially.Separate by comma(,) no space. All Capitals)", Widget: uiElements.SeatTypesEntry},
 			{Text: "Trains (Choose only One. All Capitals)", Widget: uiElements.TrainsEntry},
 			{Text: "Email address (To receive mail after done)", Widget: uiElements.EmailEntry},
 			{Text: "Phone Number (To Receive call. Currently unavailable)", Widget: uiElements.PhoneEntry},
