@@ -35,6 +35,7 @@ func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.B
 	uiElements.App.Preferences().SetString("trainsEntry", uiElements.TrainsEntry.Text)
 	uiElements.App.Preferences().SetString("emailEntry", uiElements.EmailEntry.Text)
 	uiElements.App.Preferences().SetString("phoneEntry", uiElements.PhoneEntry.Text)
+	uiElements.App.Preferences().SetString("seatFaceEntry", uiElements.SeatFaceEntry.Selected)
 	uiElements.App.Preferences().SetBool("goToBookEntry", uiElements.GoToBookEntry.Checked)
 
 	// Update global variables in the arguments package
@@ -47,6 +48,7 @@ func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.B
 		uint(seatCountVal),
 		strings.Split(uiElements.SeatTypesEntry.Text, ","),
 		strings.Split(uiElements.TrainsEntry.Text, ","),
+		uiElements.SeatFaceEntry.Selected,
 	)
 
 	// Proceed with your application logic in a separate goroutine

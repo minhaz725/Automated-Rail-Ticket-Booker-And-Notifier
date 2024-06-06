@@ -189,33 +189,48 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
                 return new Promise((resolve, reject) => {
                 setTimeout(() => {
                     const clickSeatButton = (seatNumber) => {
-                    const selector =
-                        '.btn-seat.seat-available[title^="' +
-                        coachWithHighestSeat +
-                        '-"][title$="-' +
-                        seatNumber +
-                        '"]';
-                    const seatButton = document.querySelector(selector);
-
-                    if (seatButton) {
-                        seatButton.click();
-                        return true; // Seat button found and clicked
-                    }
-                    return false; // Seat button not found
+						const selector =
+							'.btn-seat.seat-available[title^="' +
+							coachWithHighestSeat +
+							'-"][title$="-' +
+							seatNumber +
+							'"]';
+						const seatButton = document.querySelector(selector);
+	
+						if (seatButton) {
+							seatButton.click();
+							return true; // Seat button found and clicked
+						}
+						return false; // Seat button not found
                     };
+					
+					if("` + arguments.SEAT_FACE + `".includes("Towards")) {
+                    	let seatNumber = 1;
+                    	let seatCount = parseInt(
+                    	"` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
+                    	);
 
-                    let seatNumber = 1;
-                    let seatCount = parseInt(
-                    "` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
-                    );
+                    	// Loop to find and click on seat buttons
+                    	while (seatCount > 0) {
+                    	if (clickSeatButton(seatNumber)) {
+                        	seatCount--;
+                    	}
+                    	seatNumber++; // Increment the seat number for the next iteration
+                    	}
+				    } else {
+                    	let seatNumber = 100;
+                    	let seatCount = parseInt(
+                    	"` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
+                    	);
 
-                    // Loop to find and click on seat buttons
-                    while (seatCount > 0) {
-                    if (clickSeatButton(seatNumber)) {
-                        seatCount--;
-                    }
-                    seatNumber++; // Increment the seat number for the next iteration
-                    }
+                    	// Loop to find and click on seat buttons
+                    	while (seatCount > 0) {
+                    	if (clickSeatButton(seatNumber)) {
+                        	seatCount--;
+                    	}
+                    	seatNumber--; // Decrement the seat number for the next iteration
+                    	}
+				    }
 
                     resolve(); // Resolve the promise after clicking on seats
                 }, 500); // Delay of 500 milliseconds
