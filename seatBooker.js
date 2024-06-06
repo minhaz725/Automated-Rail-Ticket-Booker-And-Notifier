@@ -12,26 +12,18 @@
         appSingleTrip.querySelectorAll(".single-seat-class")
     );
 
-    let seatTypeArrayLength = parseInt(
-        "` + strconv.Itoa(len(arguments.SEAT_TYPE_ARRAY)) + `"
-    );
     let bookNowBtn;
 
-    for (let i = 0; i < seatTypeArrayLength; i++) {
-        let seatType;
-        if (i == 0) seatType = "` + arguments.SEAT_TYPE_ARRAY[0] + `";
-        if (i == 1) seatType = "` + arguments.SEAT_TYPE_ARRAY[1] + `";
-        //if(i==2) seatType = '` + /*constants.SEAT_TYPE_ARRAY[2] +*/ `'
-        let seatDiv = seatClassDivs.find((div) => {
-            let seatNameSpan = div.querySelector(".seat-class-name");
-            return seatNameSpan && seatNameSpan.innerText.trim() === seatType;
-        });
-        //throw new Error('Seat class div not found');
+    let seatType;
+    seatType = "` + selectedClass + `";
+    let seatDiv = seatClassDivs.find((div) => {
+        let seatNameSpan = div.querySelector(".seat-class-name");
+        return seatNameSpan && seatNameSpan.innerText.trim() === seatType;
+    });
+    //throw new Error('Seat class div not found');
 
-        // Find and click the book now button within the specific seat class div
-        bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
-        if (bookNowBtn != null) break;
-    }
+    // Find and click the book now button within the specific seat class div
+    bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
 
     if (!bookNowBtn)
         throw new Error("Book now button not found for All given Types" + seatType);
@@ -88,17 +80,32 @@
                     return false; // Seat button not found
                 };
 
-                let seatNumber = 1;
-                let seatCount = parseInt(
-                    "` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
-                );
+                if("` + arguments.SEAT_FACE + `".includes("Towards")) {
+                    let seatNumber = 1;
+                    let seatCount = parseInt(
+                        "` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
+                    );
 
-                // Loop to find and click on seat buttons
-                while (seatCount > 0) {
-                    if (clickSeatButton(seatNumber)) {
-                        seatCount--;
+                    // Loop to find and click on seat buttons
+                    while (seatCount > 0) {
+                        if (clickSeatButton(seatNumber)) {
+                            seatCount--;
+                        }
+                        seatNumber++; // Increment the seat number for the next iteration
                     }
-                    seatNumber++; // Increment the seat number for the next iteration
+                } else {
+                    let seatNumber = 100;
+                    let seatCount = parseInt(
+                        "` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
+                    );
+
+                    // Loop to find and click on seat buttons
+                    while (seatCount > 0) {
+                        if (clickSeatButton(seatNumber)) {
+                            seatCount--;
+                        }
+                        seatNumber--; // Decrement the seat number for the next iteration
+                    }
                 }
 
                 resolve(); // Resolve the promise after clicking on seats
