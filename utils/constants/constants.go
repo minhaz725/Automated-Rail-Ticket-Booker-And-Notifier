@@ -13,9 +13,6 @@ const (
 	OWNER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
 	SEARCH_DELAY_IN_SEC   = 2
-	WINDOWS_CHROME_PATH   = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-	MAC_CHROME_PATH       = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-	LINUX_CHROME_PATH     = "/usr/bin/google-chrome"
 	INTRO_MSG             = "" +
 		"\t\t\t\t\t **** PLEASE READ IF YOU'RE USING FIRST TIME **** \n\n" +
 		//" -Close Chrome if already opened.\n" +
@@ -26,7 +23,7 @@ const (
 		//" -You can minimize the program and continue your work. Don't close your computer.\n" +
 		//" -If the program works then it will automatically open a chrome tab and you have to finish your purchase there.\n\n" +
 		//"\t\t\t\t\t****** NOTES ****** \n\n" +
-		" --Google Chrome must be installed in your Operating System's default install location.\n\n" +
+		" --Google Chrome must be installed on your Operating System (Windows / Mac / Linux).\n\n" +
 		" --You need to log in to the ticket site(https://eticket.railway.gov.bd/), if you're already logged in, skip.\n\n" +
 		" --There's no input validation currently, so check spellings carefully.\n\n" +
 		" --Know the Seat Types: S_CHAIR-> Non AC Chair, SNIGDHA-> AC Chair, F_BERTH-> Non AC Bed (Cabin)\n" +
@@ -54,5 +51,5 @@ const (
 	CHROME_SETUP_MSG         = "Setting up Chrome, Chrome will close and reopen automatically."
 	CHROME_SETUP_SUCCESS_MSG = "Chrome Setup Successful! Fill the form and hit search button!\n " +
 		"\t\tDon't close chrome till the application ends."
-	CHROME_SETUP_FAILURE_MSG = "Chrome Setup Failed, check if chrome is installed on you os's default location (Closing in 5 seconds)"
+	CHROME_SETUP_FAILURE_MSG = "Chrome Setup Failed, check if chrome is installed and your os is supported (Closing in 5 seconds)"
 )
