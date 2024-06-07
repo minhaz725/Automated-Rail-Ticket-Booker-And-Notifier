@@ -131,7 +131,7 @@ func setChromeAfterIntroContinuePressed(window fyne.Window) func() {
 	return func() {
 		if !utils.SetupChrome(window) {
 			dialog.ShowInformation("Failed", constants.CHROME_SETUP_FAILURE_MSG, window)
-			log.Println("Chrome Setup Failed. Exiting Program")
+			log.Println("Chrome Setup Failed. Maybe Chrome not installed or OS not supported. Exiting Program")
 			time.Sleep(5 * time.Second)
 			// Terminate the program
 			os.Exit(0)

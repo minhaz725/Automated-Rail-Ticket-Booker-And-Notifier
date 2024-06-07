@@ -2,6 +2,7 @@ package utils
 
 import (
 	"Rail-Ticket-Notifier/utils/constants"
+	"bytes"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -10,35 +11,34 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
 func SetupChrome(window fyne.Window) bool {
-	//dialog.ShowInformation("Setting Up", constants.CHROME_SETUP_MSG, window)
 
 	label := widget.NewLabel(constants.CHROME_SETUP_MSG)
 	customDialog := dialog.NewCustom("Setting Up Chrome, Please Wait", "OK", container.NewVBox(label), window)
 	customDialog.Show()
 
-	var chromePath string
+	chromePath := getChromePath()
+	if chromePath == "" {
+		log.Println("Failed to find Chrome on this system. Aborting")
+		return false
+	}
+
 	var closeCmd, checkCmd *exec.Cmd
 
 	switch os := runtime.GOOS; os {
 	case "windows":
-		chromePath = constants.WINDOWS_CHROME_PATH
 		closeCmd = exec.Command("taskkill", "/IM", "chrome.exe")
 		checkCmd = exec.Command("tasklist", "/FI", "IMAGENAME eq chrome.exe")
-		//debugCheckCmd = exec.Command("cmd", "/C", `tasklist /fi "imagename eq chrome.exe" | findstr "--remote-debugging-port"`)
 	case "darwin":
-		chromePath = constants.MAC_CHROME_PATH
 		closeCmd = exec.Command("pkill", "-TERM", "Google Chrome")
 		checkCmd = exec.Command("pgrep", "Google Chrome")
-		//debugCheckCmd = exec.Command("pgrep", "-fl", "--", "--remote-debugging-port")
 	case "linux":
-		chromePath = constants.LINUX_CHROME_PATH
 		closeCmd = exec.Command("pkill", "-TERM", "chrome")
 		checkCmd = exec.Command("pgrep", "chrome")
-		//debugCheckCmd = exec.Command("pgrep", "-fl", "--", "--remote-debugging-port")
 	default:
 		log.Printf("Unsupported operating system: %s\n", os)
 		return false
@@ -91,4 +91,49 @@ func SetupChrome(window fyne.Window) bool {
 	label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
 	customDialog.SetDismissText("Continue")
 	return true
+}
+
+func getChromePath() string {
+	var cmd *exec.Cmd
+
+	switch os := runtime.GOOS; os {
+	case "windows":
+		cmd = exec.Command("reg", "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe", "/v", "Path")
+	case "darwin":
+		cmd = exec.Command("mdfind", "kMDItemCFBundleIdentifier == 'com.google.Chrome'")
+	case "linux":
+		cmd = exec.Command("which", "google-chrome")
+		// Use "which chromium-browser" if you use Chromium instead of Google Chrome
+	default:
+		return ""
+	}
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return ""
+	}
+	output := strings.TrimSpace(out.String())
+
+	if runtime.GOOS == "windows" {
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "REG_SZ") {
+				pathParts := strings.Split(line, "REG_SZ")
+				if len(pathParts) > 1 {
+					return strings.TrimSpace(pathParts[1]) + "\\chrome.exe"
+				}
+			}
+		}
+	} else if runtime.GOOS == "darwin" {
+		if output != "" {
+			return output + "/Contents/MacOS/Google Chrome"
+		}
+	} else if runtime.GOOS == "linux" {
+		if output != "" {
+			return output
+		}
+	}
+	return ""
 }

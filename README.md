@@ -7,7 +7,7 @@ and run it. Your operating system might block it for first time just click on mo
 
 **Basic things you should know before running the program**:
 
-- Google Chrome must be installed in your Operating System's default install location.
+- Google Chrome must be installed in your Operating System (Windows / Mac / Linux).
 
 
 - You need to log in to the ticket site(https://eticket.railway.gov.bd/), if you're already logged in, skip.
@@ -29,7 +29,7 @@ and run it. Your operating system might block it for first time just click on mo
 - Write only one train name. If you want to search multiple trains together, then run the app again and write another.
 
 
-- The seat face option has "Towards Dhaka" and "From Dhaka" options. By choosing "Towards Dhaka," the app tries to find seats from seat 1. By choosing the opposite option, the app tries to find seats from the last seat. Usually, if the train goes to Dhaka, seats from 1 to half (e.g., 1-30) are forward-facing. If the train goes out from Dhaka, seats from the last to half (e.g., 60-30) are forward-facing. For other destinations, you need to know the train face info and select options accordingly.
+- The seat face option has "Towards Dhaka" and "From Dhaka" options. By choosing "Towards Dhaka", the app tries to find seats from seat 1. By choosing the opposite option, the app tries to find seats from the last seat. Usually, if the train goes to Dhaka, seats from 1 to half (e.g., 1-30) are forward-facing. If the train goes out from Dhaka, seats from the last to half (e.g., 60-30) are forward-facing. For other destinations, you need to know the train face info and select options accordingly.
 
 
 - Cross out the "Go to booking page" checkbox if you want to review seats before booking.
