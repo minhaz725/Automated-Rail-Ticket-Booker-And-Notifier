@@ -26,7 +26,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	messageBody := ""
 
 	for {
-		fmt.Println("Search Started")
+		log.Println("Search Started")
 		var initialCtx context.Context
 		var cancel context.CancelFunc
 		var ctx context.Context
@@ -294,8 +294,8 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 		cancel()
 
 		attemptNo++
-		fmt.Println("Search Ended")
-		fmt.Println("Attempt Number: ", attemptNo)
+		log.Println("Search Ended")
+		log.Println("Attempt Number: ", attemptNo)
 		fmt.Println()
 
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
@@ -324,7 +324,7 @@ func generateHtmlFile(err error, renderedHTML string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("HTML file generated:", filename)
+	log.Println("HTML file generated:", filename)
 }
 
 func printHtml(err error, doc *goquery.Document) string {
@@ -332,6 +332,6 @@ func printHtml(err error, doc *goquery.Document) string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(renderedHTML)
+	log.Println(renderedHTML)
 	return renderedHTML
 }
