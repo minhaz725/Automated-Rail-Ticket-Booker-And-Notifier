@@ -24,6 +24,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	showTrain := false
 	messageBodyUpdated := false
 	messageBody := ""
+	loadTImer := 4 * time.Second
 
 	for {
 		log.Println("Search Started")
@@ -38,24 +39,35 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			initialCtx, cancel = chromedp.NewContext(context.Background())
 			ctx, cancel = chromedp.NewContext(initialCtx)
 		}
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Second+loadTImer) // Set timeout to 30 seconds
+		defer cancel()
 
-		err := chromedp.Run(ctx,
+		err := chromedp.Run(ctxWithTimeout,
 			chromedp.Navigate(url),
-			chromedp.Sleep(3*time.Second),
+			chromedp.Sleep(loadTImer),
 			chromedp.WaitVisible(`button.modify_search.mod_search`),
 			chromedp.WaitVisible(`/privacy-policy`))
 
 		if err != nil {
 			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
 				log.Println("Can't Connect to Network, check your internet. Retrying...")
-				// Handle the specific error case here
+			} else if err.Error() == "context deadline exceeded" {
+				log.Println("Page load Time exceeded(", loadTImer, "sec) retrying...")
 			} else {
 				log.Println("Browser didn't start on debug mode, please read the instructions and try again...")
 			}
+			// increase load time
+			if loadTImer < 20*time.Second {
+				loadTImer = loadTImer + 2*time.Second
+				fmt.Println("Page Load Time Increased to: ", loadTImer)
+			}
+
+			fmt.Println()
 			cancel()
-			time.Sleep(3 * time.Second)
+			time.Sleep(5 * time.Second)
 			continue
 		}
+		loadTImer = 3 * time.Second
 		// Wait for some time (adjust this as needed) to ensure the page has loaded
 		// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
 
