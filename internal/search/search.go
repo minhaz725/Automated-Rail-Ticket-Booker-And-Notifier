@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
 	"log"
 	"os"
@@ -24,9 +25,10 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	showTrain := false
 	messageBodyUpdated := false
 	messageBody := ""
+	loadTImer := 4 * time.Second
 
 	for {
-		fmt.Println("Search Started")
+		log.Println("Search Started")
 		var initialCtx context.Context
 		var cancel context.CancelFunc
 		var ctx context.Context
@@ -38,24 +40,36 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			initialCtx, cancel = chromedp.NewContext(context.Background())
 			ctx, cancel = chromedp.NewContext(initialCtx)
 		}
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Second+loadTImer) // Set timeout to 30 seconds
+		defer cancel()
 
-		err := chromedp.Run(ctx,
+		err := chromedp.Run(ctxWithTimeout,
+			emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
 			chromedp.Navigate(url),
-			chromedp.Sleep(3*time.Second),
+			chromedp.Sleep(loadTImer),
 			chromedp.WaitVisible(`button.modify_search.mod_search`),
 			chromedp.WaitVisible(`/privacy-policy`))
 
 		if err != nil {
 			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
 				log.Println("Can't Connect to Network, check your internet. Retrying...")
-				// Handle the specific error case here
+			} else if err.Error() == "context deadline exceeded" {
+				log.Println("Page load Time exceeded(", loadTImer, "sec) retrying...")
 			} else {
 				log.Println("Browser didn't start on debug mode, please read the instructions and try again...")
 			}
+			// increase load time
+			if loadTImer < 20*time.Second {
+				loadTImer = loadTImer + 2*time.Second
+				fmt.Println("Page Load Time Increased to: ", loadTImer)
+			}
+
+			fmt.Println()
 			cancel()
-			time.Sleep(3 * time.Second)
+			time.Sleep(5 * time.Second)
 			continue
 		}
+		loadTImer = 3 * time.Second
 		// Wait for some time (adjust this as needed) to ensure the page has loaded
 		// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
 
@@ -294,8 +308,8 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 		cancel()
 
 		attemptNo++
-		fmt.Println("Search Ended")
-		fmt.Println("Attempt Number: ", attemptNo)
+		log.Println("Search Ended")
+		log.Println("Attempt Number: ", attemptNo)
 		fmt.Println()
 
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
@@ -324,7 +338,7 @@ func generateHtmlFile(err error, renderedHTML string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("HTML file generated:", filename)
+	log.Println("HTML file generated:", filename)
 }
 
 func printHtml(err error, doc *goquery.Document) string {
@@ -332,6 +346,6 @@ func printHtml(err error, doc *goquery.Document) string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(renderedHTML)
+	log.Println(renderedHTML)
 	return renderedHTML
 }

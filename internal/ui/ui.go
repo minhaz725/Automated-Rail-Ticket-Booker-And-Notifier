@@ -20,6 +20,7 @@ import (
 )
 
 func InitializeUIAndForm() models.ElementsOfUI {
+	os.Setenv("FYNE_SCALE", "0.8")
 	a := app.NewWithID("Rail-Ticket-Notifier")
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
@@ -101,12 +102,12 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 
 	form := &widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "From (Title Case)", Widget: uiElements.FromEntry},
-			{Text: "To (Title Case)", Widget: uiElements.ToEntry},
+			{Text: "From", Widget: uiElements.FromEntry},
+			{Text: "Destination", Widget: uiElements.ToEntry},
 			{Text: "Date Of Journey (Choose From Calender)", Widget: uiElements.DateEntry},
 			{Text: "(Only from current date to next 10 days)", Widget: calendar},
 			{Text: "Seat Count (1 to Max 4)", Widget: uiElements.SeatCountEntry},
-			{Text: "Seat Types (Prioritize Serially.Separate by comma(,) no space. All Capitals)", Widget: uiElements.SeatTypesEntry},
+			{Text: "Seat Types (Prioritize Serially.Separate by comma(,) no space)", Widget: uiElements.SeatTypesEntry},
 			{Text: "Trains (Choose only One. All Capitals)", Widget: uiElements.TrainsEntry},
 			{Text: "Email address (To receive mail after done)", Widget: uiElements.EmailEntry},
 			{Text: "Phone Number (To Receive call. Currently unavailable)", Widget: uiElements.PhoneEntry},
