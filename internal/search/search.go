@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
 	"log"
 	"os"
@@ -43,6 +44,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 		defer cancel()
 
 		err := chromedp.Run(ctxWithTimeout,
+			emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
 			chromedp.Navigate(url),
 			chromedp.Sleep(loadTImer),
 			chromedp.WaitVisible(`button.modify_search.mod_search`),
