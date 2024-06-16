@@ -20,7 +20,7 @@ import (
 )
 
 func InitializeUIAndForm() models.ElementsOfUI {
-	os.Setenv("FYNE_SCALE", "0.9")
+	os.Setenv("FYNE_SCALE", "0.8")
 	a := app.NewWithID("Rail-Ticket-Notifier")
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
