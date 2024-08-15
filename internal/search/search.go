@@ -10,7 +10,6 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -186,16 +185,7 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
                     return currentNumber > highestNumber ? current : highest;
                 }, options[0]);
 
-                const coachWithHighestSeat = highestOption.text.split(" - ")[0];
-
-                const coachOption = Array.from(bogieSelection.options).find((option) =>
-                    option.text.includes(coachWithHighestSeat)
-                );
-
-                bogieSelection.value = coachOption.value;
-                bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
-
-                resolve(coachWithHighestSeat);
+                const coachWithHighestSeat = 'GA'
                 }, 1000); // Delay of 1000 milliseconds (1 second)
             });
 
@@ -218,62 +208,18 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 						return false; // Seat button not found
                     };
 					
-					if("` + arguments.SEAT_FACE + `".includes("Towards")) {
-                    	let seatNumber = 1;
-                    	let seatCount = parseInt(
-                    	"` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
-                    	);
+					const seatsToSelect = ['28', '29', '30', '33'];
 
-                    	// Loop to find and click on seat buttons
-                    	while (seatCount > 0) {
-                    	if (clickSeatButton(seatNumber)) {
-                        	seatCount--;
-                    	}
-                    	seatNumber++; // Increment the seat number for the next iteration
-                    	}
-				    } else {
-                    	let seatNumber = 100;
-                    	let seatCount = parseInt(
-                    	"` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
-                    	);
-
-                    	// Loop to find and click on seat buttons
-                    	while (seatCount > 0) {
-                    	if (clickSeatButton(seatNumber)) {
-                        	seatCount--;
-                    	}
-                    	seatNumber--; // Decrement the seat number for the next iteration
-                    	}
-				    }
+					// Loop through the seats and attempt to click them
+					
+					seatsToSelect.forEach(seatNumber => {
+						clickSeatButton(seatNumber)
+					});
 
                     resolve(); // Resolve the promise after clicking on seats
                 }, 500); // Delay of 500 milliseconds
                 });
             };
-            
-            waitForSelectBogie
-                .then((coachWithHighestSeat) => {
-                clickSeatButtons(coachWithHighestSeat)
-                    .then(() => {
-                    // After clicking on seats, find and click the "Continue Purchase" button
-						let purchasePage = parseInt("` + strconv.Itoa(int(arguments.GO_TO_BOOK_PAGE)) + `");
-						if(purchasePage == 1) {
-							setTimeout(() => {
-						   		const continueButton = document.querySelector(".continue-btn");
-						   		if (!continueButton)
-						   		throw new Error("Continue Purchase button not found");
-						   		continueButton.click();
-							}, 500); // Delay of 500 milliseconds after clicking on seats
-						}
-                    })
-                    .catch((error) => {
-                    console.error(error); // Handle any errors from clicking on seat buttons
-                    });
-                a;
-                })
-                .catch((error) => {
-                console.error(error); // Handle any errors from selecting the bogie
-                });
 
             return true;
             })();
@@ -302,12 +248,13 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 				log.Fatal(err)
 			}
 			//cancel() // Cancel the context explicitly when done
-			return messageBody, showTrain
+			//return messageBody, showTrain
 		}
 		// Cancel the context to end this loop's context
 		cancel()
 
 		attemptNo++
+		time.Sleep(5 * time.Minute)
 		log.Println("Search Ended")
 		log.Println("Attempt Number: ", attemptNo)
 		fmt.Println()
@@ -324,28 +271,4 @@ func updateMessageBody(messageBodyUpdated bool, messageBody string, selectedSpec
 		messageBodyUpdated = true
 	}
 	return messageBody, messageBodyUpdated
-}
-
-func generateHtmlFile(err error, renderedHTML string) {
-	//Write the rendered HTML to a file
-	filename := "parsed-page.html"
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = file.WriteString(renderedHTML)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("HTML file generated:", filename)
-}
-
-func printHtml(err error, doc *goquery.Document) string {
-	renderedHTML, err := doc.Html()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(renderedHTML)
-	return renderedHTML
 }
