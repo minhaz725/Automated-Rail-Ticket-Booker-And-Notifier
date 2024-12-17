@@ -76,3 +76,11 @@ and run it. Your operating system might block it for first time just click on mo
 - Finally, run the program:
     ```bash
     go run main.go 
+  
+## Create Executable 
+- With go (log available)
+  ```bash
+  cd cmd/main && go build -o automated-ticket-booker-with-log.exe
+- With Fyne (Replace with your project directory and os)
+  ```bash
+  fyne package -os windows -icon "D:\Work & Study\Automated-Rail-Ticket-Booker-And-Notifier\static\rail.png" -src cmd/main -name automated-ticket-booker
