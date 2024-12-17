@@ -25,10 +25,11 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	showTrain := false
 	messageBodyUpdated := false
 	messageBody := ""
-	loadTImer := 4 * time.Second
+	loadTimer := 4 * time.Second
 
 	for {
 		log.Println("Search Started")
+
 		var initialCtx context.Context
 		var cancel context.CancelFunc
 		var ctx context.Context
@@ -40,39 +41,35 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 			initialCtx, cancel = chromedp.NewContext(context.Background())
 			ctx, cancel = chromedp.NewContext(initialCtx)
 		}
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Second+loadTImer) // Set timeout to 30 seconds
-		defer cancel()
 
-		err := chromedp.Run(ctxWithTimeout,
+		err := chromedp.Run(ctx,
 			emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
 			chromedp.Navigate(url),
-			chromedp.Sleep(loadTImer),
+			chromedp.Sleep(loadTimer),
 			chromedp.WaitVisible(`button.modify_search.mod_search`),
-			chromedp.WaitVisible(`/privacy-policy`))
+			chromedp.WaitVisible(`/privacy-policy`),
+		)
 
 		if err != nil {
 			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
 				log.Println("Can't Connect to Network, check your internet. Retrying...")
-			} else if err.Error() == "context deadline exceeded" {
-				log.Println("Page load Time exceeded(", loadTImer, "sec) retrying...")
 			} else {
-				log.Println("Browser didn't start on debug mode, please read the instructions and try again...")
-			}
-			// increase load time
-			if loadTImer < 20*time.Second {
-				loadTImer = loadTImer + 2*time.Second
-				fmt.Println("Page Load Time Increased to: ", loadTImer)
+				log.Println("Browser error:", err)
 			}
 
-			fmt.Println()
+			// Increase load time if needed
+			if loadTimer < 20*time.Second {
+				loadTimer = loadTimer + 2*time.Second
+				fmt.Println("Page Load Time Increased to: ", loadTimer)
+			}
+
 			cancel()
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		loadTImer = 3 * time.Second
+		loadTimer = 3 * time.Second
 		// Wait for some time (adjust this as needed) to ensure the page has loaded
 		// You can use chromedp.Sleep or chromedp.WaitEvent for this purpose
-
 		chromedp.Sleep(2 * time.Second)
 
 		// Extract the page content after it has loaded

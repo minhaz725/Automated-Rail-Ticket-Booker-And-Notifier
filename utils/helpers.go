@@ -10,5 +10,3 @@ func FindFirstMatch(availableSeatClassArray, SeatTypeArray []string) string {
 	}
 	return ""
 }
-
-// fyne package -os windows -icon C:\Users\minha\go\src\Rail-Ticket-Notifier\static\rail.png -src cmd/main -name automated-ticket-booker
