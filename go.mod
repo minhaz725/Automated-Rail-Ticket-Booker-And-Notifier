@@ -6,13 +6,13 @@ require (
 	fyne.io/fyne/v2 v2.4.4
 	fyne.io/x/fyne v0.0.0-20240216160529-61d0ff41acd7
 	github.com/PuerkitoBio/goquery v1.8.1
+	github.com/chromedp/cdproto v0.0.0-20240202021202-6d0b6a386732
 	github.com/chromedp/chromedp v0.9.4
 )
 
 require (
 	fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
-	github.com/chromedp/cdproto v0.0.0-20240202021202-6d0b6a386732 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fredbi/uri v1.0.0 // indirect
