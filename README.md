@@ -48,7 +48,7 @@ and run it. Your operating system might block it for first time just click on mo
 ---
 **Disclaimer**: If the website gets major changes, the program won't work. I'll try to update it as soon as possible. If you face any issues or bugs, please let me know.
 
-## How to Run tho Code
+## How to Run the Code
 
 - This app requires go 1.20.6, make sure it's installed otherwise download from here: https://go.dev/dl/
 - Run the following commands and make sure they are working:
@@ -77,7 +77,7 @@ and run it. Your operating system might block it for first time just click on mo
     ```bash
     go run main.go 
   
-## Create Executable 
+## Create Portable Executables (.exe files)
 - With go (log available)
   ```bash
   cd cmd/main && go build -o automated-ticket-booker-with-log.exe
