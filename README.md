@@ -1,6 +1,7 @@
 # Automated Rail Ticket Booker And Notifier
 
 ---
+## How to Use the Program
 Just download the automated-ticket-booker.exe or automated-ticket-booker-with-log.exe file 
 from https://github.com/minhaz725/Automated-Rail-Ticket-Booker-And-Notifier/tree/main/cmd/main
 and run it. Your operating system might block it for first time just click on more info and run it anyway. That's it done!
@@ -46,3 +47,32 @@ and run it. Your operating system might block it for first time just click on mo
 
 ---
 **Disclaimer**: If the website gets major changes, the program won't work. I'll try to update it as soon as possible. If you face any issues or bugs, please let me know.
+
+## How to Run tho Code
+
+- This app requires go 1.20.6, make sure it's installed otherwise download from here: https://go.dev/dl/
+- Run the following commands and make sure they are working:
+  - Go Root:
+    ```bash
+    go env GOROOT
+  - Go Version:
+    ```bash
+    go version
+- Install Fyne following the guide from official doc: https://docs.fyne.io/started/
+- Clone the repository and open the terminal inside the directory.
+- Run the following commands to download and setup dependencies:
+  - Tidy:
+    ```bash
+    go mod tidy
+  - Download:
+    ```bash
+    go mod download
+  - Vendor:
+    ```bash
+    go mod vendor
+- Go inside cmd/main and run build command, which will take several minutes for the first time depending on your machine's power:
+    ```bash
+    go build
+- Finally, run the program:
+    ```bash
+    go run main.go 
