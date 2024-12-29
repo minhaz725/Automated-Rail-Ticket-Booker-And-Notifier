@@ -2,9 +2,10 @@
 
 ---
 ## How to Use the Program
-Just download the automated-ticket-booker.exe or automated-ticket-booker-with-log.exe file 
-from https://github.com/minhaz725/Automated-Rail-Ticket-Booker-And-Notifier/tree/main/cmd/main
-and run it. Your operating system might block it for first time just click on more info and run it anyway. That's it done!
+Just download the automated-ticket-booker.exe file 
+from https://github.com/minhaz725/Automated-Rail-Ticket-Booker-And-Notifier
+and run it. Your operating system might block it for the first time just click on more info and run it anyway. That's it done!
+(If it still blocks, open a terminal in the downloaded folder and open it from there.)
 
 **Basic things you should know before running the program**:
 
@@ -78,9 +79,4 @@ and run it. Your operating system might block it for first time just click on mo
     go run main.go 
   
 ## Create Portable Executables (.exe files)
-- With go (log available)
-  ```bash
-  cd cmd/main && go build -o automated-ticket-booker-with-log.exe
-- With Fyne (Replace with your project directory and os)
-  ```bash
-  fyne package -os windows -icon "D:\Work & Study\Automated-Rail-Ticket-Booker-And-Notifier\static\rail.png" -src cmd/main -name automated-ticket-booker
+- Just run create-exe.bat file (windows) or create.exe.sh (linux/mac)

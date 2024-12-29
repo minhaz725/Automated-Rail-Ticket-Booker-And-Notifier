@@ -1,0 +1,21 @@
+{
+  "FixedFileInfo": {
+    "FileVersion": {
+      "Major": 1,
+      "Minor": 0,
+      "Patch": 0,
+      "Build": 0
+    },
+    "ProductVersion": {
+      "Major": 1,
+      "Minor": 0,
+      "Patch": 0,
+      "Build": 0
+    }
+  },
+  "IconPath": "rail.ico",
+  "OriginalFilename": "automated-ticket-booker.exe",
+  "CompanyName": "Spell Breaker Corp",
+  "FileDescription": "Automates rail ticket booking process from BD rail website and notifies uer",
+  "ProductName": "Automated-Rail-Ticket-Booker-And-Notifier"
+}
