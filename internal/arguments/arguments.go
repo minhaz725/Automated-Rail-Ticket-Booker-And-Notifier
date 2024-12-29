@@ -79,3 +79,7 @@ func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount 
 func GenerateURL() string {
 	return constants.BASE_URL + constants.FROM_KEY + FROM + constants.TO_KEY + TO + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
 }
+
+func GenerateAltURL() string {
+	return constants.BASE_URL + constants.FROM_KEY + "Biman_Bandar" + constants.TO_KEY + TO + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
+}

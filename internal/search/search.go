@@ -16,9 +16,12 @@ import (
 	"time"
 )
 
-func PerformSearch(url string, seatBookerFunction string) (string, bool) {
+func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool) {
 	attemptNo := 0
 	openBrowser := false
+	url := originalUrl
+	altUrl := ""
+	searchAltUrl := false
 	selectedSpecificTrain := ""
 	selectedClass := ""
 	var availableSeatClassArray []string
@@ -27,8 +30,15 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 	messageBody := ""
 	loadTimer := 4 * time.Second
 
+	if strings.EqualFold(arguments.FROM, "Dhaka") {
+		altUrl = arguments.GenerateAltURL()
+		searchAltUrl = true
+		log.Println("Searching also from Biman Bandar station, as starting station is Dhaka.")
+	}
+
 	for {
 		log.Println("Search Started")
+		url = funcName(originalUrl, searchAltUrl, attemptNo, url, altUrl)
 
 		var initialCtx context.Context
 		var cancel context.CancelFunc
@@ -311,6 +321,17 @@ func PerformSearch(url string, seatBookerFunction string) (string, bool) {
 
 		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
+}
+
+func funcName(originalUrl string, searchAltUrl bool, attemptNo int, url string, altUrl string) string {
+	if searchAltUrl {
+		if attemptNo%2 == 0 {
+			url = originalUrl
+		} else {
+			url = altUrl
+		}
+	}
+	return url
 }
 
 func updateMessageBody(messageBodyUpdated bool, messageBody string, selectedSpecificTrain string, selectedClass string) (string, bool) {
