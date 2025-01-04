@@ -30,6 +30,44 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	messageBody := ""
 	loadTimer := 4 * time.Second
 
+	loginInitCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	loginCtx, cancel := chromedp.NewContext(loginInitCtx)
+	defer cancel()
+
+	// Login if needed
+	err := chromedp.Run(loginCtx,
+		emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
+		chromedp.Navigate(constants.LOGIN_URL),
+		chromedp.WaitReady("body"),
+	)
+	if err != nil {
+		log.Fatal("Failed to navigate:", err)
+	}
+
+	// Check if redirected to homepage (already logged in)
+	var currentURL string
+	err = chromedp.Run(loginCtx,
+		chromedp.Location(&currentURL),
+	)
+	if err != nil {
+		log.Fatal("Failed to get current URL:", err)
+	}
+
+	// Only perform login if we're still on login page
+	if currentURL == constants.LOGIN_URL {
+		err = chromedp.Run(loginCtx,
+			chromedp.WaitVisible(`#loginForm`),
+			//chromedp.Sleep(100*time.Millisecond),
+			chromedp.Click(`button[type="submit"].login-form-submit-btn`),
+		)
+		if err != nil {
+			log.Fatal("Failed to login:", err)
+		}
+		log.Println("Successfully logged in!")
+	} else {
+		log.Println("Already logged in.")
+	}
+
 	if strings.EqualFold(arguments.FROM, "Dhaka") {
 		altUrl = arguments.GenerateAltURL()
 		searchAltUrl = true
@@ -203,7 +241,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
                 bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
 
                 resolve(coachWithHighestSeat);
-                }, 1000); // Delay of 1000 milliseconds (1 second)
+                }, 500); // Delay of 500 milliseconds (1 second)
             });
 
             const clickSeatButtons = (coachWithHighestSeat) => {
@@ -254,7 +292,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 				    }
 
                     resolve(); // Resolve the promise after clicking on seats
-                }, 500); // Delay of 500 milliseconds
+                }, 100); // Delay of 100 milliseconds
                 });
             };
             
@@ -270,7 +308,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 						   		if (!continueButton)
 						   		throw new Error("Continue Purchase button not found");
 						   		continueButton.click();
-							}, 500); // Delay of 500 milliseconds after clicking on seats
+							}, 100); // Delay of 100 milliseconds after clicking on seats
 						}
                     })
                     .catch((error) => {
