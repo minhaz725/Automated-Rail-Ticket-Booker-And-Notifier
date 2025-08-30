@@ -3,12 +3,15 @@ package utils
 import (
 	"Rail-Ticket-Notifier/utils/constants"
 	"bytes"
+	"errors"
+	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -24,73 +27,153 @@ func SetupChrome(window fyne.Window) bool {
 	chromePath := getChromePath()
 	if chromePath == "" {
 		log.Println("Failed to find Chrome on this system. Aborting")
+		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
 		return false
 	}
 
-	var closeCmd, checkCmd *exec.Cmd
-
-	switch os := runtime.GOOS; os {
-	case "windows":
-		closeCmd = exec.Command("taskkill", "/IM", "chrome.exe")
-		checkCmd = exec.Command("tasklist", "/FI", "IMAGENAME eq chrome.exe")
-	case "darwin":
-		closeCmd = exec.Command("pkill", "-TERM", "Google Chrome")
-		checkCmd = exec.Command("pgrep", "Google Chrome")
-	case "linux":
-		closeCmd = exec.Command("pkill", "-TERM", "chrome")
-		checkCmd = exec.Command("pgrep", "chrome")
-	default:
-		log.Printf("Unsupported operating system: %s\n", os)
-		return false
+	// Quick check: is a chrome already running with debugging enabled?
+	if debugIsReady() {
+		log.Println("Chrome is already running in debug mode.")
+		label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
+		customDialog.SetDismissText("Continue")
+		return true
 	}
 
-	debugModeCheck, err := http.Get(constants.DEBUG_MODE_CHECK_URL)
-	if err == nil {
-		if debugModeCheck.StatusCode == http.StatusOK {
-			log.Println("Chrome is already running in debug mode.")
-			label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
-			customDialog.SetDismissText("Continue")
-			return true
+	label.SetText("Closing existing Chrome processes (graceful)...")
+	if err := killChrome(false); err != nil {
+		log.Printf("Graceful chrome termination attempt issue: %v\n", err)
+	}
+
+	// Wait for chrome to exit (grace period) else force kill
+	if !waitForChromeExit(5 * time.Second) {
+		label.SetText("Forcing Chrome to close...")
+		if err := killChrome(true); err != nil {
+			log.Printf("Force chrome termination attempt issue: %v\n", err)
+		}
+		if !waitForChromeExit(10 * time.Second) { // longer wait after force
+			log.Println("Chrome did not close after force kill, proceeding anyway.")
 		}
 	}
 
-	// Close existing Chrome instances gracefully
-	err = closeCmd.Run()
+	// Prepare isolated user data dir so we are sure flags are honored
+	profileDir, err := os.MkdirTemp("", "chrome-debug-profile-")
 	if err != nil {
-		log.Printf("Error sending terminate signal to Chrome, might be already closed: %v\n", err)
-		//return false
-	} else {
-		log.Println("Sent terminate signal to Chrome.")
+		log.Printf("Failed to create temp profile dir: %v\n", err)
 	}
 
-	// Wait for Chrome to close
-	for {
-		output, err := checkCmd.Output()
-		if err != nil {
-			//log.Printf("Error checking Chrome processes: %v\n", err)
-			break
-		}
-		if len(output) == 0 {
-			log.Println("Chrome has closed successfully.")
-			break
-		}
-		log.Println("Waiting for Chrome to close...")
-		time.Sleep(1 * time.Second)
+	label.SetText("Launching Chrome in debug mode...")
+	args := []string{"--remote-debugging-port=9222", "--restore-last-session", "--no-first-run", "--no-default-browser-check"}
+	if profileDir != "" {
+		args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
 	}
-
-	// Launch Chrome with remote debugging and restore last session
-	launchCmd := exec.Command(chromePath, "--remote-debugging-port=9222", "--restore-last-session")
-	err = launchCmd.Start()
-	if err != nil {
+	launchCmd := exec.Command(chromePath, args...)
+	if err := launchCmd.Start(); err != nil {
 		log.Printf("Error launching Chrome with remote debugging: %v\n", err)
+		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
 		return false
-	} else {
-		log.Println("Chrome launched with remote debugging port 9222 and previous session restored.")
+	}
+	log.Println("Chrome launched with remote debugging port 9222.")
+
+	label.SetText("Waiting for debug port to become ready...")
+	if !waitForDebugPort(15 * time.Second) {
+		log.Println("Debug port not reachable within timeout.")
+		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
+		return false
 	}
 
 	label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
 	customDialog.SetDismissText("Continue")
 	return true
+}
+
+// debugIsReady does a quick GET to the debug version endpoint.
+func debugIsReady() bool {
+	client := &http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Get(constants.DEBUG_MODE_CHECK_URL)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+// killChrome attempts to terminate chrome processes.
+// force = true uses a stronger signal/flag.
+func killChrome(force bool) error {
+	switch runtime.GOOS {
+	case "windows":
+		if force {
+			return exec.Command("taskkill", "/IM", "chrome.exe", "/F", "/T").Run()
+		}
+		return exec.Command("taskkill", "/IM", "chrome.exe").Run()
+	case "darwin":
+		if force {
+			return exec.Command("pkill", "-KILL", "Google Chrome").Run()
+		}
+		return exec.Command("pkill", "-TERM", "Google Chrome").Run()
+	case "linux":
+		if force {
+			return exec.Command("pkill", "-KILL", "chrome").Run()
+		}
+		return exec.Command("pkill", "-TERM", "chrome").Run()
+	default:
+		return errors.New("unsupported os")
+	}
+}
+
+// isChromeRunning checks if any chrome process is still present.
+func isChromeRunning() bool {
+	switch runtime.GOOS {
+	case "windows":
+		cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq chrome.exe")
+		out, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+		// If chrome not running, output contains only header lines w/o "chrome.exe" occurrence.
+		return strings.Contains(strings.ToLower(string(out)), "chrome.exe")
+	case "darwin", "linux":
+		cmd := exec.Command("pgrep", "chrome")
+		if runtime.GOOS == "darwin" {
+			cmd = exec.Command("pgrep", "Google Chrome")
+		}
+		out, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+		return strings.TrimSpace(string(out)) != ""
+	default:
+		return false
+	}
+}
+
+// waitForChromeExit waits up to d for chrome processes to disappear.
+func waitForChromeExit(d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		if !isChromeRunning() {
+			return true
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return !isChromeRunning()
+}
+
+// waitForDebugPort polls the debug endpoint until available or timeout.
+func waitForDebugPort(d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	client := &http.Client{Timeout: 1 * time.Second}
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(constants.DEBUG_MODE_CHECK_URL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
 }
 
 func getChromePath() string {
