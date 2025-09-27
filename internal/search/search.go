@@ -213,6 +213,64 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 						if uint(seatCount) >= arguments.SEAT_COUNT {
 							seatFound = true
 							selectedSpecificTrain = trainName
+							selectedClass = utils.FindFirstMatch(availableSeatClassArray, arguments.SEAT_TYPE_ARRAY)
+							if selectedClass == "" {
+								log.Fatal("class selection error")
+							}
+							messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
+							log.Println("Seat found! Initiating seat holding process...")
+							// Seat holding process
+							holdDuration := 4 // minutes
+							jsCode := buildSeatHoldingJS(selectedSpecificTrain, selectedClass, holdDuration)
+							holdingStartTime := time.Now()
+							var success bool
+							if err := chromedp.Run(searchCtx, chromedp.Evaluate(jsCode, &success), chromedp.Sleep(2*time.Second)); err != nil {
+								log.Printf("Seat holding JS error: %v\n", err)
+							} else {
+								log.Println("Seat holding initiated successfully. Seats will be cycled every 4 minutes.")
+								log.Println("To stop holding: execute 'window.stopSeatHolding()' in browser console")
+							}
+							// Wait for seat selection and extract details
+							time.Sleep(5 * time.Second)
+							var seatDetails struct {
+								Coach     string   `json:"coach"`
+								SeatClass string   `json:"seatClass"`
+								Seats     []string `json:"seats"`
+							}
+							chromedp.Run(searchCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: 'Unknown', seatClass: 'Unknown', seats: []}`, &seatDetails))
+							if len(seatDetails.Seats) > 0 {
+								messageBody += fmt.Sprintf("Coach: %s\n", seatDetails.Coach)
+								messageBody += fmt.Sprintf("Selected Seats: %s\n", strings.Join(seatDetails.Seats, ", "))
+							}
+							messageBody += "The tab will remain open. Complete Booking.\n"
+							log.Println("Seat holding process initiated. Tab will remain open.")
+							log.Println("Complete message:", messageBody)
+							log.Println("Keeping tab open for seat holding. Seats will cycle every 4 minutes...")
+							emailSent := false
+							for {
+								time.Sleep(30 * time.Second)
+								var holdingStopped bool
+								err := chromedp.Run(searchCtx, chromedp.Evaluate(`typeof window.stopSeatHolding === 'undefined'`, &holdingStopped))
+								if err != nil {
+									log.Printf("Error checking holding status: %v", err)
+									break
+								}
+								if holdingStopped {
+									log.Println("Seat holding has been stopped by user.")
+									messageBody += "Seat holding stopped. All seats released.\n"
+									break
+								}
+								if !emailSent && time.Since(holdingStartTime) > time.Duration(holdDuration)*time.Second {
+									log.Println("Sending notification email after first booking cycle...")
+									if notifier.SendEmail(messageBody) {
+										log.Println("Email sent successfully")
+										emailSent = true
+									} else {
+										log.Println("Failed to send email")
+									}
+								}
+								log.Printf("Seat holding active... (running indefinitely)")
+							}
 							return
 						} else {
 							availableSeatClassArray = availableSeatClassArray[:len(availableSeatClassArray)-1]
@@ -220,100 +278,6 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 					}
 				})
 			})
-		}
-
-		// If seat found, handle the seat holding process
-		if seatFound {
-			if !messageBodyUpdated {
-				fmt.Println(availableSeatClassArray)
-				selectedClass = utils.FindFirstMatch(availableSeatClassArray, arguments.SEAT_TYPE_ARRAY)
-				if selectedClass == "" {
-					log.Fatal("class selection error")
-				}
-				messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
-				log.Println("Seat found! Will open new tab for seat holding on next iteration...")
-				attemptNo++
-				time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
-				continue
-			}
-
-			holdDuration := 4 // minutes
-			// Now we're in the holding tab, initiate seat holding
-			jsCode := buildSeatHoldingJS(selectedSpecificTrain, selectedClass, holdDuration)
-			holdingStartTime := time.Now()
-
-			var success bool
-			if err := chromedp.Run(searchCtx, chromedp.Evaluate(jsCode, &success), chromedp.Sleep(2*time.Second)); err != nil {
-				log.Printf("Seat holding JS error: %v\n", err)
-			} else {
-				log.Println("Seat holding initiated successfully. Seats will be cycled every 4 minutes.")
-				log.Println("To stop holding: execute 'window.stopSeatHolding()' in browser console")
-			}
-
-			// Wait for seat selection and extract details
-			time.Sleep(5 * time.Second) // Wait for seat selection to complete
-
-			var seatDetails struct {
-				Coach     string   `json:"coach"`
-				SeatClass string   `json:"seatClass"`
-				Seats     []string `json:"seats"`
-			}
-
-			chromedp.Run(searchCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: 'Unknown', seatClass: 'Unknown', seats: []}`, &seatDetails))
-
-			// Update message body with detailed info
-			if len(seatDetails.Seats) > 0 {
-				messageBody += fmt.Sprintf("Coach: %s\n", seatDetails.Coach)
-				messageBody += fmt.Sprintf("Selected Seats: %s\n", strings.Join(seatDetails.Seats, ", "))
-			}
-			messageBody += "The tab will remain open. Complete Booking.\n"
-
-			log.Println("Seat holding process initiated. Tab will remain open.")
-			log.Println("Complete message:", messageBody)
-
-			// Keep the context alive indefinitely for seat holding
-			log.Println("Keeping tab open for seat holding. Seats will cycle every 4 minutes...")
-
-			// Keep the context alive indefinitely for seat holding
-			log.Println("Keeping tab open for seat holding. Seats will cycle every 4 minutes...")
-
-			emailSent := false
-			for {
-				time.Sleep(30 * time.Second) // Check every 30 seconds
-
-				// Check if holding has been stopped manually
-				var holdingStopped bool
-				err := chromedp.Run(searchCtx, chromedp.Evaluate(`
-		typeof window.stopSeatHolding === 'undefined'
-	`, &holdingStopped))
-
-				if err != nil {
-					log.Printf("Error checking holding status: %v", err)
-					break
-				}
-
-				if holdingStopped {
-					log.Println("Seat holding has been stopped by user.")
-					messageBody += "Seat holding stopped. All seats released.\n"
-					break
-				}
-
-				// Send email after first cycle (4 minutes + some buffer)
-				if !emailSent && time.Since(holdingStartTime) > time.Duration(holdDuration)*time.Second {
-					log.Println("Sending notification email after first booking cycle...")
-					if notifier.SendEmail(messageBody) {
-						log.Println("Email sent successfully")
-						emailSent = true
-					} else {
-						log.Println("Failed to send email")
-					}
-				}
-
-				// Log status every few minutes
-				log.Printf("Seat holding active... (running indefinitely)")
-			}
-
-			return messageBody, seatFound
 		}
 
 		attemptNo++

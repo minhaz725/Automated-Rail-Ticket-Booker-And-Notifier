@@ -13,11 +13,11 @@ const (
 	SENDER_EMAIL_NAME     = "Automated Rail Ticket System by Minhaz"
 	OWNER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
-	SEARCH_DELAY_IN_SEC   = 2
+	SEARCH_DELAY_IN_SEC   = 1
 	// Auto login configuration (NOTE: storing credentials in source is insecure; consider env vars)
 	AUTO_LOGIN_ENABLED = true
-	LOGIN_UID_VALUE    = "018***"
-	LOGIN_PASS_VALUE   = "pol***"
+	LOGIN_UID_VALUE    = "01521487070"
+	LOGIN_PASS_VALUE   = "Timu7250"
 	INTRO_MSG          = "" +
 		"\t\t\t\t\t **** PLEASE READ IF YOU'RE USING FIRST TIME **** \n\n" +
 		//" -Close Chrome if already opened.\n" +
