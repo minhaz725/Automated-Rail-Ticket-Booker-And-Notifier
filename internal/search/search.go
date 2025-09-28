@@ -467,8 +467,9 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    				if (bogieSelection) {
    					console.log("Found bogie selection");
    					const extractNumber = (text) => {
-   						const match = text.match(/\\d+/);
-   						return match ? parseInt(match[0]) : 0;
+   						// Extract the number between " - " and " Seat(s)"
+   						const match = text.match(/ - (\d+) Seat\(s\)/);
+   						return match ? parseInt(match[1]) : 0;
    					};
 
    					const options = Array.from(bogieSelection.options);
