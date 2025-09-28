@@ -487,7 +487,31 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
 
    					bogieSelection.value = coachOption.value;
    					bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
-   					resolve(coachWithHighestSeat);
+   					// Handle XTR coach popup
+   					if (coachWithHighestSeat && coachWithHighestSeat.startsWith("XTR")) {
+   						setTimeout(() => {
+   							// Try to find and click the OKAY button in the popup
+   							const okBtn = Array.from(document.querySelectorAll("button, input[type='button']"))
+   								.find(el => el.textContent.trim().toUpperCase() === "OKAY");
+   							if (okBtn) {
+   								okBtn.click();
+   								console.log("XTR coach popup OKAY clicked");
+   							} else {
+   								console.warn("XTR coach popup OKAY button not found");
+   							}
+   						}, 400); // Adjust delay if needed
+   					}
+   					// Check for available seat buttons before proceeding
+   					setTimeout(() => {
+   						const availableSeats = document.querySelectorAll('.btn-seat.seat-available');
+   						if (!availableSeats || availableSeats.length === 0) {
+   							console.error("No available seats found after coach selection. Aborting seat selection.");
+   							window.seatSelectionFailed = true;
+   							resolve(false);
+   							return;
+   						}
+   						resolve(coachWithHighestSeat);
+   					}, 500);
    				} else {
    					console.log("Bogie selection not found, continuing anyway...");
    					resolve(null);
@@ -496,6 +520,10 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    		});
 
    		waitForInterface.then((coachWithHighestSeat) => {
+   			if (coachWithHighestSeat === false || window.seatSelectionFailed) {
+   				console.error("Seat selection failed due to no available seats.");
+   				return false;
+   			}
    			setTimeout(() => {
    				console.log("Starting seat selection...");
    				const clickSeatButton = (seatNumber) => {
