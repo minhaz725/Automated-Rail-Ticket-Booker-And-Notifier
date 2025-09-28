@@ -33,7 +33,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	seatFound := false
 	messageBodyUpdated := false
 	messageBody := ""
-	loadTimer := 4 * time.Second
+	loadTimer := 1 * time.Second // Reduced initial loadTimer
 	var searchCtx context.Context
 
 	// Add cleanup handler for graceful shutdown
@@ -43,12 +43,15 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		<-c
 		log.Println("Received exit signal. Cleaning up seats...")
 		if searchCtx != nil {
-			chromedp.Run(searchCtx, chromedp.Evaluate(`
+			err := chromedp.Run(searchCtx, chromedp.Evaluate(`
    			if (typeof window.stopSeatHolding === 'function') {
    				window.stopSeatHolding();
    				console.log("Seats released due to app exit");
    			}
    		`, nil))
+			if err != nil {
+				log.Printf("Cleanup JS error: %v\n", err)
+			}
 		}
 		log.Println("Cleanup completed. Exiting...")
 		os.Exit(0)
@@ -70,13 +73,19 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	}
 
 	var currentURL string
-	chromedp.Run(loginCtx, chromedp.Location(&currentURL))
+	err = chromedp.Run(loginCtx, chromedp.Location(&currentURL))
+	if err != nil {
+		log.Printf("Location error: %v\n", err)
+	}
 	if currentURL == constants.LOGIN_URL && constants.AUTO_LOGIN_ENABLED {
 		log.Println("Attempting auto login...")
 		if err := autoLogin(loginCtx); err != nil {
 			log.Printf("Auto login error: %v\n", err)
 		} else {
-			chromedp.Run(loginCtx, chromedp.Sleep(1500*time.Millisecond), chromedp.Location(&currentURL))
+			err = chromedp.Run(loginCtx, chromedp.Sleep(1500*time.Millisecond), chromedp.Location(&currentURL))
+			if err != nil {
+				log.Printf("Sleep+Location error: %v\n", err)
+			}
 		}
 	}
 	if currentURL == constants.LOGIN_URL {
@@ -94,6 +103,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	// Main search loop - use login context for headless searches
 	for {
 		log.Println("Search Started")
+		loadTimer = 1 * time.Second // Resetting initial loadTimer
 		url = funcName(originalUrl, searchAltUrl, attemptNo, url, altUrl)
 
 		// Use the existing login context for headless searches
@@ -113,7 +123,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
 			chromedp.Navigate(url),
 			chromedp.WaitReady("body"),
-			chromedp.Sleep(loadTimer),
+			chromedp.Sleep(loadTimer), // You can try removing this line entirely if page loads are fast
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
@@ -134,7 +144,10 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		}
 
 		var afterNav string
-		chromedp.Run(searchCtx, chromedp.Location(&afterNav))
+		err = chromedp.Run(searchCtx, chromedp.Location(&afterNav))
+		if err != nil {
+			log.Printf("Search location error: %v\n", err)
+		}
 		if afterNav == constants.LOGIN_URL {
 			log.Println("Lost session (redirect to login). Will re-login next loop.")
 			// Only cancel if we created a new context for booking
@@ -146,14 +159,14 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			continue
 		}
 
-		// Poll for trip results (max 10s)
+		// Poll for trip results (max 4s)
 		var haveResults bool
-		for i := 0; i < 20; i++ { // 20 * 500ms
+		for i := 0; i < 20; i++ { // 20 * 200ms = 4s
 			_ = chromedp.Run(searchCtx, chromedp.Evaluate(`document.querySelectorAll('.single-trip-wrapper').length>0`, &haveResults))
 			if haveResults {
 				break
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 		}
 		if !haveResults {
 			log.Println("No results yet; increasing wait window")
@@ -237,7 +250,28 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 								SeatClass string   `json:"seatClass"`
 								Seats     []string `json:"seats"`
 							}
-							chromedp.Run(searchCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: 'Unknown', seatClass: 'Unknown', seats: []}`, &seatDetails))
+							err = chromedp.Run(searchCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: 'Unknown', seatClass: 'Unknown', seats: []}`, &seatDetails))
+							if err != nil {
+								log.Printf("Seat details JS error: %v\n", err)
+							}
+
+							// Check if enough seats were selected
+							if len(seatDetails.Seats) < int(arguments.SEAT_COUNT) {
+								log.Printf("Seat selection failed: only %d out of %d seats selected. Discarding and continuing search...", len(seatDetails.Seats), arguments.SEAT_COUNT)
+								// If a new tab was opened for booking, close it
+								if seatFound && searchCancel != nil {
+									searchCancel()
+								}
+								// Reset state for next search
+								seatFound = false
+								selectedSpecificTrain = ""
+								selectedClass = ""
+								availableSeatClassArray = nil
+								messageBodyUpdated = false
+								messageBody = ""
+								return // Exit current attempt, continue search loop
+							}
+
 							if len(seatDetails.Seats) > 0 {
 								messageBody += fmt.Sprintf("Coach: %s\n", seatDetails.Coach)
 								messageBody += fmt.Sprintf("Selected Seats: %s\n", strings.Join(seatDetails.Seats, ", "))
@@ -282,7 +316,6 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 
 		attemptNo++
 		log.Println("Search Ended - Attempt:", attemptNo)
-		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
 }
 
