@@ -79,7 +79,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	}
 	if currentURL == constants.LOGIN_URL && constants.AUTO_LOGIN_ENABLED {
 		log.Println("Attempting auto login...")
-		if err := autoLogin(loginCtx); err != nil {
+		if err := autoLogin(loginCtx, arguments.LOGIN_USERNAME, arguments.LOGIN_PASSWORD); err != nil {
 			log.Printf("Auto login error: %v\n", err)
 		} else {
 			err = chromedp.Run(loginCtx, chromedp.Sleep(1500*time.Millisecond), chromedp.Location(&currentURL))
@@ -104,7 +104,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	for {
 		log.Println("Search Started")
 		loadTimer = 1 * time.Second // Resetting initial loadTimer
-		url = funcName(originalUrl, searchAltUrl, attemptNo, url, altUrl)
+		url = createAltUrl(originalUrl, searchAltUrl, attemptNo, url, altUrl)
 
 		// Use the existing login context for headless searches
 		searchCtx = loginCtx
@@ -590,7 +590,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    })();`
 }
 
-func funcName(originalUrl string, searchAltUrl bool, attemptNo int, url string, altUrl string) string {
+func createAltUrl(originalUrl string, searchAltUrl bool, attemptNo int, url string, altUrl string) string {
 	if searchAltUrl {
 		if attemptNo%2 == 0 {
 			url = originalUrl
@@ -632,10 +632,7 @@ func printHtml(err error, doc *goquery.Document) string {
 	return renderedHTML
 }
 
-func autoLogin(ctx context.Context) error {
-	username := constants.LOGIN_UID_VALUE
-	password := constants.LOGIN_PASS_VALUE
-
+func autoLogin(ctx context.Context, username, password string) error {
 	js := `(function(u,p){
    	function fill(cands,val){
    		for(const sel of cands){

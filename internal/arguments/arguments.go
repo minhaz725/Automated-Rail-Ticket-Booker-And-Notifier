@@ -18,6 +18,8 @@ var (
 	RECEIVER_EMAIL_ADDRESS string
 	SEAT_FACE              string
 	GO_TO_BOOK_PAGE        uint
+	LOGIN_USERNAME         string
+	LOGIN_PASSWORD         string
 )
 
 func init() {
@@ -33,6 +35,8 @@ func init() {
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
 	flag.StringVar(&SEAT_FACE, "seatFace", "Travelling Towards Dhaka", "Seat Face")
 	flag.UintVar(&GO_TO_BOOK_PAGE, "purchasePage", 1, "Go to purchase page")
+	flag.StringVar(&LOGIN_USERNAME, "username", "", "Login username")
+	flag.StringVar(&LOGIN_PASSWORD, "password", "", "Login password")
 
 	flag.Func("seatTypes", "Seat types", func(s string) error {
 		SEAT_TYPE_ARRAY = strings.Split(s, ",")
@@ -47,7 +51,7 @@ func init() {
 	flag.Parse()
 }
 
-func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string, seatFace string) {
+func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string, seatFace, loginUsername, loginPassword string) {
 	if from == "Chapai Nawabganj" {
 		FROM = "Chapai%20Nawabganj"
 	} else if from == "Cox's Bazar" {
@@ -74,6 +78,8 @@ func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount 
 		GO_TO_BOOK_PAGE = 0
 	}
 	SEAT_FACE = seatFace
+	LOGIN_USERNAME = loginUsername
+	LOGIN_PASSWORD = loginPassword
 }
 
 func GenerateURL() string {
