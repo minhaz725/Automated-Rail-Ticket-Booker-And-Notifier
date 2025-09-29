@@ -2,6 +2,7 @@ package search
 
 import (
 	"Rail-Ticket-Notifier/internal/arguments"
+	"Rail-Ticket-Notifier/internal/notifier"
 	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
@@ -11,8 +12,10 @@ import (
 	"github.com/chromedp/chromedp"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -30,7 +33,29 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	seatFound := false
 	messageBodyUpdated := false
 	messageBody := ""
-	loadTimer := 4 * time.Second
+	loadTimer := 1 * time.Second // Reduced initial loadTimer
+	var searchCtx context.Context
+
+	// Add cleanup handler for graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		log.Println("Received exit signal. Cleaning up seats...")
+		if searchCtx != nil {
+			err := chromedp.Run(searchCtx, chromedp.Evaluate(`
+   			if (typeof window.stopSeatHolding === 'function') {
+   				window.stopSeatHolding();
+   				console.log("Seats released due to app exit");
+   			}
+   		`, nil))
+			if err != nil {
+				log.Printf("Cleanup JS error: %v\n", err)
+			}
+		}
+		log.Println("Cleanup completed. Exiting...")
+		os.Exit(0)
+	}()
 
 	// Login (remote debugger chrome assumed running)
 	loginAlloc, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
@@ -48,13 +73,19 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	}
 
 	var currentURL string
-	chromedp.Run(loginCtx, chromedp.Location(&currentURL))
+	err = chromedp.Run(loginCtx, chromedp.Location(&currentURL))
+	if err != nil {
+		log.Printf("Location error: %v\n", err)
+	}
 	if currentURL == constants.LOGIN_URL && constants.AUTO_LOGIN_ENABLED {
 		log.Println("Attempting auto login...")
-		if err := autoLogin(loginCtx); err != nil {
+		if err := autoLogin(loginCtx, arguments.LOGIN_USERNAME, arguments.LOGIN_PASSWORD); err != nil {
 			log.Printf("Auto login error: %v\n", err)
 		} else {
-			chromedp.Run(loginCtx, chromedp.Sleep(1500*time.Millisecond), chromedp.Location(&currentURL))
+			err = chromedp.Run(loginCtx, chromedp.Sleep(1500*time.Millisecond), chromedp.Location(&currentURL))
+			if err != nil {
+				log.Printf("Sleep+Location error: %v\n", err)
+			}
 		}
 	}
 	if currentURL == constants.LOGIN_URL {
@@ -72,15 +103,16 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	// Main search loop - use login context for headless searches
 	for {
 		log.Println("Search Started")
-		url = funcName(originalUrl, searchAltUrl, attemptNo, url, altUrl)
+		loadTimer = 1 * time.Second // Resetting initial loadTimer
+		url = createAltUrl(originalUrl, searchAltUrl, attemptNo, url, altUrl)
 
 		// Use the existing login context for headless searches
-		searchCtx := loginCtx
+		searchCtx = loginCtx
 		var searchCancel context.CancelFunc
 
 		// If seat was found and we need to open a new tab for booking, create new context
 		if seatFound {
-			log.Println("Creating new tab for seat booking...")
+			log.Println("Creating new tab for seat holding...")
 			bookingAlloc, bookingAllocCancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
 			defer bookingAllocCancel()
 			searchCtx, searchCancel = chromedp.NewContext(bookingAlloc)
@@ -91,7 +123,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
 			chromedp.Navigate(url),
 			chromedp.WaitReady("body"),
-			chromedp.Sleep(loadTimer),
+			chromedp.Sleep(loadTimer), // You can try removing this line entirely if page loads are fast
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
@@ -112,7 +144,10 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		}
 
 		var afterNav string
-		chromedp.Run(searchCtx, chromedp.Location(&afterNav))
+		err = chromedp.Run(searchCtx, chromedp.Location(&afterNav))
+		if err != nil {
+			log.Printf("Search location error: %v\n", err)
+		}
 		if afterNav == constants.LOGIN_URL {
 			log.Println("Lost session (redirect to login). Will re-login next loop.")
 			// Only cancel if we created a new context for booking
@@ -124,14 +159,14 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			continue
 		}
 
-		// Poll for trip results (max 10s)
+		// Poll for trip results (max 4s)
 		var haveResults bool
-		for i := 0; i < 20; i++ { // 20 * 500ms
+		for i := 0; i < 20; i++ { // 20 * 200ms = 4s
 			_ = chromedp.Run(searchCtx, chromedp.Evaluate(`document.querySelectorAll('.single-trip-wrapper').length>0`, &haveResults))
 			if haveResults {
 				break
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 		}
 		if !haveResults {
 			log.Println("No results yet; increasing wait window")
@@ -191,6 +226,85 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 						if uint(seatCount) >= arguments.SEAT_COUNT {
 							seatFound = true
 							selectedSpecificTrain = trainName
+							selectedClass = utils.FindFirstMatch(availableSeatClassArray, arguments.SEAT_TYPE_ARRAY)
+							if selectedClass == "" {
+								log.Fatal("class selection error")
+							}
+							messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
+							log.Println("Seat found! Initiating seat holding process...")
+							// Seat holding process
+							holdDuration := 4 // minutes
+							jsCode := buildSeatHoldingJS(selectedSpecificTrain, selectedClass, holdDuration)
+							holdingStartTime := time.Now()
+							var success bool
+							if err := chromedp.Run(searchCtx, chromedp.Evaluate(jsCode, &success), chromedp.Sleep(2*time.Second)); err != nil {
+								log.Printf("Seat holding JS error: %v\n", err)
+							} else {
+								log.Println("Seat holding initiated successfully. Seats will be cycled every 4 minutes.")
+								log.Println("To stop holding: execute 'window.stopSeatHolding()' in browser console")
+							}
+							// Wait for seat selection and extract details
+							time.Sleep(5 * time.Second)
+							var seatDetails struct {
+								Coach     string   `json:"coach"`
+								SeatClass string   `json:"seatClass"`
+								Seats     []string `json:"seats"`
+							}
+							err = chromedp.Run(searchCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: 'Unknown', seatClass: 'Unknown', seats: []}`, &seatDetails))
+							if err != nil {
+								log.Printf("Seat details JS error: %v\n", err)
+							}
+
+							// Check if enough seats were selected
+							if len(seatDetails.Seats) < int(arguments.SEAT_COUNT) {
+								log.Printf("Seat selection failed: only %d out of %d seats selected. Discarding and continuing search...", len(seatDetails.Seats), arguments.SEAT_COUNT)
+								// If a new tab was opened for booking, close it
+								if seatFound && searchCancel != nil {
+									searchCancel()
+								}
+								// Reset state for next search
+								seatFound = false
+								selectedSpecificTrain = ""
+								selectedClass = ""
+								availableSeatClassArray = nil
+								messageBodyUpdated = false
+								messageBody = ""
+								return // Exit current attempt, continue search loop
+							}
+
+							if len(seatDetails.Seats) > 0 {
+								messageBody += fmt.Sprintf("Coach: %s\n", seatDetails.Coach)
+								messageBody += fmt.Sprintf("Selected Seats: %s\n", strings.Join(seatDetails.Seats, ", "))
+							}
+							messageBody += "The tab will remain open. Complete Booking.\n"
+							log.Println("Seat holding process initiated. Tab will remain open.")
+							log.Println("Complete message:", messageBody)
+							log.Println("Keeping tab open for seat holding. Seats will cycle every 4 minutes...")
+							emailSent := false
+							for {
+								time.Sleep(30 * time.Second)
+								var holdingStopped bool
+								err := chromedp.Run(searchCtx, chromedp.Evaluate(`typeof window.stopSeatHolding === 'undefined'`, &holdingStopped))
+								if err != nil {
+									log.Printf("Error checking holding status: %v", err)
+									break
+								}
+								if holdingStopped {
+									log.Println("Seat holding has been stopped by user.")
+									messageBody += "Seat holding stopped. All seats released.\n"
+									break
+								}
+								if !emailSent && time.Since(holdingStartTime) > time.Duration(holdDuration)*time.Second {
+									log.Println("Sending notification email after first booking cycle...")
+									if notifier.SendEmail(messageBody) {
+										log.Println("Email sent successfully")
+										emailSent = true
+									} else {
+										log.Println("Failed to send email")
+									}
+								}
+								log.Printf("Seat holding active... (running indefinitely)")
+							}
 							return
 						} else {
 							availableSeatClassArray = availableSeatClassArray[:len(availableSeatClassArray)-1]
@@ -200,438 +314,283 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			})
 		}
 
-		// If seat found, handle the booking process
-		if seatFound {
-			if !messageBodyUpdated {
-				fmt.Println(availableSeatClassArray)
-				selectedClass = utils.FindFirstMatch(availableSeatClassArray, arguments.SEAT_TYPE_ARRAY)
-				if selectedClass == "" {
-					log.Fatal("class selection error")
-				}
-				messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
-				log.Println("Seat found! Will open new tab for booking on next iteration...")
-				attemptNo++
-				time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
-				continue
-			}
-
-			// Now we're in the booking tab, click the seat booking button
-			jsCode := buildSeatBookingJS(selectedSpecificTrain, selectedClass)
-			var success bool
-			if err := chromedp.Run(searchCtx, chromedp.Evaluate(jsCode, &success), chromedp.Sleep(2*time.Second)); err != nil {
-				log.Printf("Seat booking JS error: %v\n", err)
-				// Don't return on error, let user handle manually
-			} else {
-				log.Println("Seat booking button clicked successfully")
-			}
-
-			// Wait for coach selection page to load and handle it
-			log.Println("Waiting for coach selection page...")
-			var coachPageLoaded bool
-			for i := 0; i < 30; i++ { // Wait up to 15 seconds for coach page
-				err := chromedp.Run(searchCtx, chromedp.Evaluate(`
-					document.querySelector('.coach-selection') !== null ||
-					document.querySelector('.seat-selection') !== null ||
-					document.querySelector('[class*="coach"]') !== null ||
-					document.querySelector('[class*="seat"]') !== null ||
-					document.URL.includes('seat') ||
-					document.URL.includes('coach')
-				`, &coachPageLoaded))
-				if err == nil && coachPageLoaded {
-					break
-				}
-				time.Sleep(500 * time.Millisecond)
-			}
-
-			if coachPageLoaded {
-				log.Println("Coach selection page loaded, attempting to select coach and seats...")
-
-				// First, try to select a coach/boarding station if needed
-				log.Println("Looking for boarding station or coach selection...")
-				var boardingStationSelected bool
-				boardingStationJS := `(() => {
-					try {
-						// Look for boarding station dropdown
-						let dropdown = document.querySelector('select');
-						if (dropdown && dropdown.options.length > 1) {
-							dropdown.selectedIndex = 1; // Select first available option
-							dropdown.dispatchEvent(new Event('change', {bubbles: true}));
-							console.log("Boarding station selected");
-							return true;
-						}
-
-						// Look for coach buttons
-						let coachButtons = document.querySelectorAll('[class*="coach"], [class*="wagon"], button[class*="select"]');
-						if (coachButtons.length > 0) {
-							coachButtons[0].click();
-							console.log("Coach selected");
-							return true;
-						}
-
-						return false;
-					} catch (e) {
-						console.error("Boarding station/coach selection error:", e);
-						return false;
-					}
-				})();`
-
-				chromedp.Run(searchCtx, chromedp.Evaluate(boardingStationJS, &boardingStationSelected))
-				if boardingStationSelected {
-					log.Println("Boarding station/coach selection completed")
-				}
-
-				// Wait for seat selection interface to load
-				log.Println("Waiting for seat selection interface to load...")
-				time.Sleep(3 * time.Second)
-
-				// Now look for and select seats
-				var seatsSelected bool
-				seatSelectionJS := `(() => {
-					try {
-						console.log("Looking for seats...");
-
-						// Wait a moment for seats to render
-						let attempts = 0;
-						let maxAttempts = 10;
-
-						function selectSeats() {
-							attempts++;
-							console.log("Seat selection attempt:", attempts);
-
-							// Look for various seat selector patterns
-							let seatSelectors = [
-								'[class*="seat"]:not([class*="occupied"]):not([class*="booked"]):not([class*="selected"])',
-								'button[class*="seat"]:not([disabled])',
-								'.seat:not(.occupied):not(.booked):not(.selected)',
-								'[data-seat]:not([disabled])',
-								'.available-seat',
-								'button[class*="available"]'
-							];
-
-							let seatButtons = [];
-							for (let selector of seatSelectors) {
-								seatButtons = document.querySelectorAll(selector);
-								if (seatButtons.length > 0) {
-									console.log("Found", seatButtons.length, "seats with selector:", selector);
-									break;
-								}
-							}
-
-							if (seatButtons.length === 0 && attempts < maxAttempts) {
-								console.log("No seats found yet, retrying in 500ms...");
-								setTimeout(selectSeats, 500);
-								return;
-							}
-
-							if (seatButtons.length === 0) {
-								console.log("No seats found after all attempts");
-								return false;
-							}
-
-							let seatsNeeded = ` + fmt.Sprintf("%d", arguments.SEAT_COUNT) + `;
-							let selectedSeats = 0;
-
-							console.log("Attempting to select", seatsNeeded, "seats from", seatButtons.length, "available");
-
-							for (let i = 0; i < seatButtons.length && selectedSeats < seatsNeeded; i++) {
-								let seat = seatButtons[i];
-
-								// Check if seat is clickable
-								if (seat.disabled || seat.classList.contains('occupied') || seat.classList.contains('booked')) {
-									continue;
-								}
-
-								try {
-									seat.click();
-									selectedSeats++;
-									console.log("Selected seat", selectedSeats, "of", seatsNeeded);
-
-									// Add visual feedback
-									seat.style.backgroundColor = '#4CAF50';
-									seat.style.border = '2px solid #45a049';
-								} catch (e) {
-									console.error("Error clicking seat:", e);
-								}
-
-								// Small delay between seat selections
-								if (selectedSeats < seatsNeeded) {
-									setTimeout(() => {}, 200);
-								}
-							}
-
-							console.log("Total seats selected:", selectedSeats);
-
-							// Wait a moment then check if continue button is enabled
-							setTimeout(() => {
-								let continueBtn = document.querySelector('button[class*="continue"], button[class*="purchase"], input[type="submit"]');
-								if (continueBtn) {
-									console.log("Continue button found, enabled:", !continueBtn.disabled);
-									if (!continueBtn.disabled) {
-										console.log("Clicking continue button...");
-										continueBtn.click();
-									} else {
-										console.log("Continue button is still disabled - may need more seats selected");
-									}
-								} else {
-									console.log("Continue button not found");
-								}
-							}, 1000);
-
-							return selectedSeats > 0;
-						}
-
-						selectSeats();
-						return true;
-
-					} catch (e) {
-						console.error("Seat selection error:", e);
-						return false;
-					}
-				})();`
-
-				if err := chromedp.Run(searchCtx, chromedp.Evaluate(seatSelectionJS, &seatsSelected)); err != nil {
-					log.Printf("Seat selection error: %v\n", err)
-				} else {
-					log.Println("Seat selection process initiated")
-				}
-
-				// Wait additional time for the seat selection and continue button click
-				log.Println("Waiting for seat selection to complete...")
-				time.Sleep(8 * time.Second)
-
-				// Check if we've progressed past seat selection
-				var progressedPastSeats bool
-				chromedp.Run(searchCtx, chromedp.Evaluate(`
-					// Check if we're past the seat selection stage
-					document.URL.includes('payment') ||
-					document.URL.includes('checkout') ||
-					document.URL.includes('confirm') ||
-					document.URL.includes('passenger') ||
-					document.querySelector('[class*="payment"]') !== null ||
-					document.querySelector('[class*="checkout"]') !== null ||
-					document.querySelector('[class*="passenger"]') !== null ||
-					!document.body.innerText.toLowerCase().includes('choose seat')
-				`, &progressedPastSeats))
-
-				if progressedPastSeats {
-					log.Println("Successfully progressed past seat selection")
-				} else {
-					log.Println("Still on seat selection page - may need manual intervention")
-
-					// Try one more time to click continue if seats were selected
-					var retryClick bool
-					chromedp.Run(searchCtx, chromedp.Evaluate(`
-						(() => {
-							let continueBtn = document.querySelector('button[class*="continue"], button[class*="purchase"], input[type="submit"]');
-							if (continueBtn && !continueBtn.disabled) {
-								continueBtn.click();
-								return true;
-							}
-							return false;
-						})();
-					`, &retryClick))
-
-					if retryClick {
-						log.Println("Retry continue button click successful")
-						time.Sleep(3 * time.Second)
-					}
-				}
-
-			} else {
-				log.Println("Coach selection page did not load as expected - user may need to continue manually")
-			}
-
-			// Add instruction to the message about manual completion
-			messageBody += "\nBooking process initiated. Please complete the remaining steps manually in the opened browser tab.\n"
-			messageBody += "The tab will remain open for you to finish the booking process.\n"
-
-			log.Println("Booking process initiated. Tab will remain open for manual completion.")
-			log.Println("Complete message:", messageBody)
-
-			// Don't return yet - keep the context alive by continuing the loop
-			// This prevents the tab from closing prematurely
-			// Only return after a longer wait to ensure user has time to complete booking
-			log.Println("Keeping tab open for manual booking completion...")
-
-			for i := 0; i < 120; i++ { // Keep alive for 2 minutes
-				time.Sleep(1 * time.Second)
-
-				// Check if booking is completed by looking for success page
-				var bookingCompleted bool
-				err := chromedp.Run(searchCtx, chromedp.Evaluate(`
-					document.URL.includes('success') || 
-					document.URL.includes('confirmation') ||
-					document.querySelector('[class*="success"]') !== null ||
-					document.querySelector('[class*="confirmed"]') !== null ||
-					document.body.innerText.toLowerCase().includes('booking confirmed') ||
-					document.body.innerText.toLowerCase().includes('ticket booked')
-				`, &bookingCompleted))
-
-				if err == nil && bookingCompleted {
-					log.Println("Booking appears to be completed successfully!")
-					messageBody += "Booking completed successfully!\n"
-					break
-				}
-
-				// Every 30 seconds, log that we're still waiting
-				if i > 0 && i%30 == 0 {
-					log.Printf("Still waiting for booking completion... (%d seconds elapsed)", i)
-				}
-			}
-
-			return messageBody, seatFound
-		}
-
 		attemptNo++
 		log.Println("Search Ended - Attempt:", attemptNo)
-		time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
 	}
 }
 
-func buildSeatBookingJS(trainName, selectedClass string) string {
+func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int) string {
 	return `(() => {
-            const headers = Array.from(document.querySelectorAll("h2"));
-            const header = headers.find((h) =>
-                h.innerText.includes("` + trainName + `")
-            );
-            if (!header) throw new Error("Header not found");
-            const appSingleTrip = header.closest("app-single-trip");
-            if (!appSingleTrip) throw new Error("Parent component not found");
+   	console.log("Starting seat holding process...");
+   	let heldSeats = [];
+   	let holdInterval;
+   	let isHolding = false;
 
-            // Filter single-seat-class divs by the text content of the seat-class-name span
-            const seatClassDivs = Array.from(
-                appSingleTrip.querySelectorAll(".single-seat-class")
-            );
+   	// Function to find and track selected seats
+   	function trackSelectedSeats() {
+   		console.log("Tracking selected seats...");
+   		const selectedSeatElements = document.querySelectorAll('.btn-seat.seat-selected, [class*="seat"][class*="selected"]');
+   		heldSeats = [];
+   		
+   		selectedSeatElements.forEach(seat => {
+   			const seatId = seat.getAttribute('title') || seat.getAttribute('data-seat') || seat.textContent;
+   			if (seatId) {
+   				heldSeats.push({
+   					element: seat,
+   					id: seatId,
+   					selector: generateSelectorForSeat(seat)
+   				});
+   			}
+   		});
+   		
+   		console.log("Tracked seats:", heldSeats.map(s => s.id));
+   		return heldSeats.length > 0;
+   	}
 
-            let bookNowBtn;
+   	// Generate a reliable selector for a seat element
+   	function generateSelectorForSeat(seatElement) {
+   		const title = seatElement.getAttribute('title');
+   		const className = seatElement.className;
+   		
+   		if (title) {
+   			return '[title="' + title + '"]';
+   		} else if (className) {
+   			return '.' + className.split(' ').join('.');
+   		} else {
+   			return null;
+   		}
+   	}
 
-			let seatType;
-            seatType = "` + selectedClass + `";
-            let seatDiv = seatClassDivs.find((div) => {
-            	let seatNameSpan = div.querySelector(".seat-class-name");
-                return seatNameSpan && seatNameSpan.innerText.trim() === seatType;
-            });
-            //throw new Error('Seat class div not found');
+   	// Function to click seats (hold or unhold)
+   	function toggleSeats(hold = true) {
+   		let successCount = 0;
+   		console.log((hold ? "Holding" : "Unholding") + " seats...");
+   		
+   		heldSeats.forEach(seatInfo => {
+   			try {
+   				let seatElement = document.querySelector(seatInfo.selector);
+   				
+   				if (seatElement && !seatElement.disabled) {
+   					seatElement.click();
+   					successCount++;
+   					console.log((hold ? 'Held' : 'Unheld') + ' seat: ' + seatInfo.id);
+   				} else {
+   					console.warn('Seat not found or disabled: ' + seatInfo.id);
+   				}
+   			} catch (e) {
+   				console.error('Error toggling seat ' + seatInfo.id + ':', e);
+   			}
+   		});
+   		
+   		console.log("Successfully toggled " + successCount + " seats");
+   		return successCount;
+   	}
 
-             // Find and click the book now button within the specific seat class div
-             bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
+   	// Main seat holding cycle
+   	function startHoldCycle() {
+   		if (isHolding) {
+   			console.log("Holding cycle already active");
+   			return;
+   		}
+   		
+   		isHolding = true;
+   		console.log('Starting seat hold cycle. Hold duration: ' + ` + fmt.Sprintf("%d", holdDurationMinutes) + ` + ' minutes');
+   		
+   		const cycleInterval = ` + fmt.Sprintf("%d", holdDurationMinutes) + ` * 60 * 1000; // Convert to milliseconds
+   		console.log("Cycle interval:", cycleInterval, "ms");
+   		
+   		holdInterval = setInterval(() => {
+   			console.log("=== SEAT CYCLE START ===");
+   			console.log("Step 1: Unholding seats...");
+   			toggleSeats(false); // Unhold seats
+   			
+   			setTimeout(() => {
+   				console.log("Step 2: Reholding seats...");
+   				toggleSeats(true); // Re-hold seats immediately
+   				console.log("=== SEAT CYCLE COMPLETE ===");
+   			}, 1000); // 1000ms delay between unhold and rehold
+   			
+   		}, cycleInterval);
+   		
+   		console.log("Hold interval ID:", holdInterval);
+   		
+   		// Set up stop mechanism
+   		window.stopSeatHolding = () => {
+   			console.log("Stopping seat holding...");
+   			if (holdInterval) {
+   				clearInterval(holdInterval);
+   				console.log("Interval cleared");
+   			}
+   			isHolding = false;
+   			
+   			// Final unhold
+   			toggleSeats(false);
+   			console.log("All seats released. Seat holding stopped.");
+   		};
+   		
+   		console.log("Seat holding started. Call window.stopSeatHolding() to stop.");
+   	}
 
-            if (!bookNowBtn)
-                throw new Error("Book now button not found for All given Types" + seatType);
+   	// Original seat selection logic
+   	try {
+   		console.log("Looking for train:", "` + trainName + `");
+   		const headers = Array.from(document.querySelectorAll("h2"));
+   		const header = headers.find((h) => h.innerText.includes("` + trainName + `"));
+   		
+   		if (!header) throw new Error("Header not found");
+   		console.log("Found train header");
+   		
+   		const appSingleTrip = header.closest("app-single-trip");
+   		if (!appSingleTrip) throw new Error("Parent component not found");
+   		console.log("Found parent component");
 
-            bookNowBtn.click();
+   		const seatClassDivs = Array.from(appSingleTrip.querySelectorAll(".single-seat-class"));
+   		let seatDiv = seatClassDivs.find((div) => {
+   			let seatNameSpan = div.querySelector(".seat-class-name");
+   			return seatNameSpan && seatNameSpan.innerText.trim() === "` + selectedClass + `";
+   		});
 
-            const waitForSelectBogie = new Promise((resolve, reject) => {
-                setTimeout(() => {
-                const bogieSelection = document.getElementById("select-bogie");
-                if (!bogieSelection)
-                    reject(new Error("Bogie selection dropdown not found"));
+   		if (!seatDiv) throw new Error("Seat class div not found for: " + "` + selectedClass + `");
+   		console.log("Found seat class div for:", "` + selectedClass + `");
 
-                const extractNumber = (text) => {
-                    const match = text.match(/\d+/);
-                    return match ? parseInt(match[0]) : 0;
-                };
+   		const bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
+   		if (!bookNowBtn) throw new Error("Book now button not found");
 
-                const options = Array.from(bogieSelection.options);
-                const highestOption = options.reduce((highest, current) => {
-                    const highestNumber = extractNumber(highest.text);
-                    const currentNumber = extractNumber(current.text);
-                    return currentNumber > highestNumber ? current : highest;
-                }, options[0]);
+   		console.log("Clicking book now button...");
+   		bookNowBtn.click();
 
-                const coachWithHighestSeat = highestOption.text.split(" - ")[0];
+   		// Wait for bogie selection
+   		const waitForInterface = new Promise((resolve) => {
+   			setTimeout(() => {
+   				console.log("Looking for bogie selection...");
+   				const bogieSelection = document.getElementById("select-bogie");
+   				if (bogieSelection) {
+   					console.log("Found bogie selection");
+   					const extractNumber = (text) => {
+   						// Extract the number between " - " and " Seat(s)"
+   						const match = text.match(/ - (\d+) Seat\(s\)/);
+   						return match ? parseInt(match[1]) : 0;
+   					};
 
-                const coachOption = Array.from(bogieSelection.options).find((option) =>
-                    option.text.includes(coachWithHighestSeat)
-                );
+   					const options = Array.from(bogieSelection.options);
+   					const highestOption = options.reduce((highest, current) => {
+   						const highestNumber = extractNumber(highest.text);
+   						const currentNumber = extractNumber(current.text);
+   						return currentNumber > highestNumber ? current : highest;
+   					}, options[0]);
 
-                bogieSelection.value = coachOption.value;
-                bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
+   					const coachWithHighestSeat = highestOption.text.split(" - ")[0];
+   					console.log("Selected coach:", coachWithHighestSeat);
+   					
+   					const coachOption = Array.from(bogieSelection.options).find((option) =>
+   						option.text.includes(coachWithHighestSeat)
+   					);
 
-                resolve(coachWithHighestSeat);
-                }, 500); // Delay of 500 milliseconds
-            });
+   					bogieSelection.value = coachOption.value;
+   					bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
+   					// Handle XTR coach popup
+   					if (coachWithHighestSeat && coachWithHighestSeat.startsWith("XTR")) {
+   						setTimeout(() => {
+   							// Try to find and click the OKAY button in the popup
+   							const okBtn = Array.from(document.querySelectorAll("button, input[type='button']"))
+   								.find(el => el.textContent.trim().toUpperCase() === "OKAY");
+   							if (okBtn) {
+   								okBtn.click();
+   								console.log("XTR coach popup OKAY clicked");
+   							} else {
+   								console.warn("XTR coach popup OKAY button not found");
+   							}
+   						}, 400); // Adjust delay if needed
+   					}
+   					// Check for available seat buttons before proceeding
+   					setTimeout(() => {
+   						const availableSeats = document.querySelectorAll('.btn-seat.seat-available');
+   						if (!availableSeats || availableSeats.length === 0) {
+   							console.error("No available seats found after coach selection. Aborting seat selection.");
+   							window.seatSelectionFailed = true;
+   							resolve(false);
+   							return;
+   						}
+   						resolve(coachWithHighestSeat);
+   					}, 500);
+   				} else {
+   					console.log("Bogie selection not found, continuing anyway...");
+   					resolve(null);
+   				}
+   			}, 500);
+   		});
 
-            const clickSeatButtons = (coachWithHighestSeat) => {
-                return new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    const clickSeatButton = (seatNumber) => {
-						const selector =
-							'.btn-seat.seat-available[title^="' +
-							coachWithHighestSeat +
-							'-"][title$="-' +
-							seatNumber +
-							'"]';
-						const seatButton = document.querySelector(selector);
-	
-						if (seatButton) {
-							seatButton.click();
-							return true; // Seat button found and clicked
-						}
-						return false; // Seat button not found
-                    };
-					
-					if("` + arguments.SEAT_FACE + `".includes("Towards")) {
-                    	let seatNumber = 1;
-                    	let seatCount = parseInt(
-                    	"` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
-                    	);
+   		waitForInterface.then((coachWithHighestSeat) => {
+   			if (coachWithHighestSeat === false || window.seatSelectionFailed) {
+   				console.error("Seat selection failed due to no available seats.");
+   				return false;
+   			}
+   			setTimeout(() => {
+   				console.log("Starting seat selection...");
+   				const clickSeatButton = (seatNumber) => {
+   					let selector;
+   					if (coachWithHighestSeat) {
+   						selector = '.btn-seat.seat-available[title^="' + coachWithHighestSeat + '-"][title$="-' + seatNumber + '"]';
+   					} else {
+   						selector = '.btn-seat.seat-available[title$="-' + seatNumber + '"]';
+   					}
+   					console.log("Trying selector for seat " + seatNumber + ":", selector);
+   					const seatButton = document.querySelector(selector);
+   					if (seatButton) {
+   						seatButton.click();
+   						console.log("Clicked seat:", seatNumber);
+   						return true;
+   					}
+   					return false;
+   				};
+   				
+   				let seatNumber = "` + arguments.SEAT_FACE + `".includes("Towards") ? 1 : 100;
+   				let seatCount = parseInt("` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `");
+   				let increment = "` + arguments.SEAT_FACE + `".includes("Towards") ? 1 : -1;
+   				console.log("Starting seat selection from:", seatNumber, "increment:", increment, "need:", seatCount);
 
-                    	// Loop to find and click on seat buttons
-                    	while (seatCount > 0) {
-                    	if (clickSeatButton(seatNumber)) {
-                        	seatCount--;
-                    	}
-                    	seatNumber++; // Increment the seat number for the next iteration
-                    	}
-				    } else {
-                    	let seatNumber = 100;
-                    	let seatCount = parseInt(
-                    	"` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `"
-                    	);
+   				while (seatCount > 0 && seatNumber > 0 && seatNumber <= 100) {
+   					if (clickSeatButton(seatNumber)) {
+   						seatCount--;
+   						console.log("Seats remaining:", seatCount);
+   					}
+   					seatNumber += increment;
+   				}
 
-                    	// Loop to find and click on seat buttons
-                    	while (seatCount > 0) {
-                    	if (clickSeatButton(seatNumber)) {
-                        	seatCount--;
-                    	}
-                    	seatNumber--; // Decrement the seat number for the next iteration
-                    	}
-				    }
+   				// After seats are selected, track them and start holding cycle
+   				setTimeout(() => {
+   					console.log("Tracking seats for holding...");
+   					if (trackSelectedSeats()) {
+   						// Store seat details in window for Go to access
+   						window.selectedSeatDetails = {
+   							coach: coachWithHighestSeat || 'Unknown',
+   							seatClass: '` + selectedClass + `',
+   							seats: heldSeats.map(s => s.id)
+   						};
+   						console.log("Starting hold cycle...");
+   						startHoldCycle();
+   					} else {
+   						console.error("No seats were tracked for holding - checking for any selected seats...");
+   						// Fallback: look for any selected seats
+   						const anySelected = document.querySelectorAll('[class*="selected"], .seat-selected');
+   						console.log("Found selected elements:", anySelected.length);
+   						anySelected.forEach((el, i) => console.log("Selected element " + i + ":", el));
+   					}
+   				}, 1000);
+   				
+   			}, 100);
+   		});
 
-                    resolve(); // Resolve the promise after clicking on seats
-                }, 100); // Delay of 100 milliseconds
-                });
-            };
-            
-            waitForSelectBogie
-                .then((coachWithHighestSeat) => {
-                clickSeatButtons(coachWithHighestSeat)
-                    .then(() => {
-                    // After clicking on seats, find and click the "Continue Purchase" button
-						let purchasePage = parseInt("` + strconv.Itoa(int(arguments.GO_TO_BOOK_PAGE)) + `");
-						if(purchasePage == 1) {
-							setTimeout(() => {
-						   		const continueButton = document.querySelector(".continue-btn");
-						   		if (!continueButton)
-						   		throw new Error("Continue Purchase button not found");
-						   		continueButton.click();
-							}, 100); // Delay of 100 milliseconds after clicking on seats
-						}
-                    })
-                    .catch((error) => {
-                    console.error(error); // Handle any errors from clicking on seat buttons
-                    });
-                })
-                .catch((error) => {
-                console.error(error); // Handle any errors from selecting the bogie
-                });
-
-            return true;
-            })();`
+   		return true;
+   		
+   	} catch (error) {
+   		console.error("Seat holding setup error:", error);
+   		return false;
+   	}
+   })();`
 }
 
-func funcName(originalUrl string, searchAltUrl bool, attemptNo int, url string, altUrl string) string {
+func createAltUrl(originalUrl string, searchAltUrl bool, attemptNo int, url string, altUrl string) string {
 	if searchAltUrl {
 		if attemptNo%2 == 0 {
 			url = originalUrl
@@ -644,9 +603,8 @@ func funcName(originalUrl string, searchAltUrl bool, attemptNo int, url string, 
 
 func updateMessageBody(messageBodyUpdated bool, messageBody string, selectedSpecificTrain string, selectedClass string) (string, bool) {
 	if !messageBodyUpdated {
-		messageBody += "Train Name:" + selectedSpecificTrain + "\n"
-		messageBody += "Seat Class:" + selectedClass + "\n"
-		messageBody += "Go to the opened tab in your chrome browser and complete purchase.\n"
+		messageBody += "Train Name: " + selectedSpecificTrain + "\n"
+		messageBody += "Seat Class: " + selectedClass + "\n"
 		messageBodyUpdated = true
 	}
 	return messageBody, messageBodyUpdated
@@ -674,55 +632,50 @@ func printHtml(err error, doc *goquery.Document) string {
 	return renderedHTML
 }
 
-// autoLogin tries to populate username & password fields then click login submit button using richer event simulation.
-func autoLogin(ctx context.Context) error {
-	username := constants.LOGIN_UID_VALUE
-	password := constants.LOGIN_PASS_VALUE
-
-	// JS helper now triggers keydown/keypress/input/change/blur events so Angular/React forms update state.
+func autoLogin(ctx context.Context, username, password string) error {
 	js := `(function(u,p){
-		function fill(cands,val){
-			for(const sel of cands){
-				let el=document.querySelector(sel);
-				if(!el) continue;
-				el.focus();
-				el.value='';
-				['keydown','keypress','input'].forEach(ev=>el.dispatchEvent(new KeyboardEvent(ev,{bubbles:true,cancelable:true,key:val.slice(-1)})));
-				for(const ch of val){
-					el.value+=ch;
-					el.dispatchEvent(new Event('input',{bubbles:true}));
-				}
-				el.dispatchEvent(new Event('change',{bubbles:true}));
-				el.blur();
-				return sel;
-			}
-			return null;
-		}
-		const userSel=fill([
-			'input[formcontrolname="mobile"]',
-			'input[name="mobile"]',
-			'input[name="username"]',
-			'input[id*="mobile"]',
-			'input[id="username"]',
-			'input[name="email"]'
-		], u);
-		const passSel=fill([
-			'input[formcontrolname="password"]',
-			'input[type="password"]',
-			'input[name="password"]',
-			'input[id="password"]'
-		], p);
+   	function fill(cands,val){
+   		for(const sel of cands){
+   			let el=document.querySelector(sel);
+   			if(!el) continue;
+   			el.focus();
+   			el.value='';
+   			['keydown','keypress','input'].forEach(ev=>el.dispatchEvent(new KeyboardEvent(ev,{bubbles:true,cancelable:true,key:val.slice(-1)})));
+   			for(const ch of val){
+   				el.value+=ch;
+   				el.dispatchEvent(new Event('input',{bubbles:true}));
+   			}
+   			el.dispatchEvent(new Event('change',{bubbles:true}));
+   			el.blur();
+   			return sel;
+   		}
+   		return null;
+   	}
+   	const userSel=fill([
+   		'input[formcontrolname="mobile"]',
+   		'input[name="mobile"]',
+   		'input[name="username"]',
+   		'input[id*="mobile"]',
+   		'input[id="username"]',
+   		'input[name="email"]'
+   	], u);
+   	const passSel=fill([
+   		'input[formcontrolname="password"]',
+   		'input[type="password"]',
+   		'input[name="password"]',
+   		'input[id="password"]'
+   	], p);
 
-		let btn=document.querySelector('button[type="submit"].login-form-submit-btn')||document.querySelector('button[type="submit"]');
-		if(btn && (btn.disabled || btn.getAttribute('disabled')!==null)){
-			btn.disabled=false; btn.removeAttribute('disabled');
-		}
-		if(btn){
-			btn.focus();
-			btn.click();
-		}
-		return {userSel,passSel,clicked:!!btn,btnDisabled:btn?btn.disabled:null};
-	})(%q,%q);`
+   	let btn=document.querySelector('button[type="submit"].login-form-submit-btn')||document.querySelector('button[type="submit"]');
+   	if(btn && (btn.disabled || btn.getAttribute('disabled')!==null)){
+   		btn.disabled=false; btn.removeAttribute('disabled');
+   	}
+   	if(btn){
+   		btn.focus();
+   		btn.click();
+   	}
+   	return {userSel,passSel,clicked:!!btn,btnDisabled:btn?btn.disabled:null};
+   })(%q,%q);`
 
 	var result struct {
 		UserSel     string `json:"userSel"`
@@ -735,14 +688,13 @@ func autoLogin(ctx context.Context) error {
 		chromedp.WaitReady("body"),
 		chromedp.Sleep(300*time.Millisecond),
 		chromedp.Evaluate(fmt.Sprintf(js, username, password), &result),
-		chromedp.Sleep(1200*time.Millisecond), // give time for redirect
+		chromedp.Sleep(1200*time.Millisecond),
 	); err != nil {
 		return err
 	}
 
 	log.Printf("AutoLogin -> userSel:%s passSel:%s clicked:%v btnDisabled:%v\n", result.UserSel, result.PassSel, result.Clicked, result.BtnDisabled)
 
-	// If button not clicked or selectors null, signal error so fallback path can attempt.
 	if !result.Clicked || result.UserSel == "" || result.PassSel == "" {
 		return fmt.Errorf("autologin incomplete (clicked=%v userSel=%s passSel=%s)", result.Clicked, result.UserSel, result.PassSel)
 	}
