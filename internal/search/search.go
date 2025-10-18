@@ -11,6 +11,7 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
@@ -19,9 +20,39 @@ import (
 	"time"
 )
 
+// getUserAgent returns a random user agent from a pool of realistic browser user agents
+func getUserAgent() string {
+	userAgents := []string{
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/121.0",
+		"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/121.0",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+	}
+	return userAgents[rand.Intn(len(userAgents))]
+}
+
+// getRandomDelay returns a random delay between SEARCH_DELAY_MIN_SEC and SEARCH_DELAY_MAX_SEC
+func getRandomDelay() time.Duration {
+	min := constants.SEARCH_DELAY_MIN_SEC
+	max := constants.SEARCH_DELAY_MAX_SEC
+	delay := rand.Intn(max-min+1) + min
+	return time.Duration(delay) * time.Second
+}
+
 func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool) {
 	// prevent unused param warning (future use maybe dynamic booking strategy)
 	_ = seatBookerFunction
+
+	// Initialize random seed
+	rand.Seed(time.Now().UnixNano())
 
 	attemptNo := 0
 	url := originalUrl
@@ -64,7 +95,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	defer cancelAlloc()
 
 	err := chromedp.Run(loginCtx,
-		emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
+		emulation.SetUserAgentOverride(getUserAgent()),
 		chromedp.Navigate(constants.LOGIN_URL),
 		chromedp.WaitReady("body"),
 	)
@@ -119,8 +150,12 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			defer searchCancel()
 		}
 
+		// Get a random user agent for this search attempt
+		currentUserAgent := getUserAgent()
+		log.Printf("Using User Agent: %s", currentUserAgent)
+
 		err = chromedp.Run(searchCtx,
-			emulation.SetUserAgentOverride("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
+			emulation.SetUserAgentOverride(currentUserAgent),
 			chromedp.Navigate(url),
 			chromedp.WaitReady("body"),
 			chromedp.Sleep(loadTimer), // You can try removing this line entirely if page loads are fast
@@ -178,7 +213,11 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 				searchCancel()
 			}
 			attemptNo++
-			time.Sleep(constants.SEARCH_DELAY_IN_SEC * time.Second)
+
+			// Use random delay instead of fixed delay
+			randomDelay := getRandomDelay()
+			log.Printf("Waiting %v seconds before next search attempt...", randomDelay.Seconds())
+			time.Sleep(randomDelay)
 			continue
 		}
 
@@ -316,6 +355,11 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 
 		attemptNo++
 		log.Println("Search Ended - Attempt:", attemptNo)
+
+		// Use random delay between all search attempts
+		randomDelay := getRandomDelay()
+		log.Printf("Waiting %v seconds before next search attempt...", randomDelay.Seconds())
+		time.Sleep(randomDelay)
 	}
 }
 
