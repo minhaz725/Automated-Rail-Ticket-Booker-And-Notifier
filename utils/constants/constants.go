@@ -3,6 +3,7 @@ package constants
 const (
 	BASE_URL              = "https://eticket.railway.gov.bd/booking/train/search/?"
 	LOGIN_URL             = "https://eticket.railway.gov.bd/login"
+	HOME_URL              = "https://eticket.railway.gov.bd"
 	FROM_KEY              = "fromcity="
 	TO_KEY                = "&tocity="
 	DATE_KEY              = "&doj="
@@ -15,8 +16,9 @@ const (
 	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
 	SEARCH_DELAY_MIN_SEC  = 3
 	SEARCH_DELAY_MAX_SEC  = 8
-	// Auto login configuration (NOTE: storing credentials in source is insecure; consider env vars)
-	AUTO_LOGIN_ENABLED = true
+	CHROME_SETUP_LOGIN_MSG        = "Please log in to the railway website in the Chrome browser that just opened.\nOnce logged in, click 'Test Login' to verify."
+	CHROME_SETUP_LOGIN_RETRY_MSG  = "Login verification failed. Please try logging in again and click 'Test Login'."
+	CHROME_SETUP_LOGIN_SUCCESS_MSG = "Login verified successfully!"
 	INTRO_MSG          = "" +
 		"\t\t\t\t\t **** PLEASE READ IF YOU'RE USING FIRST TIME **** \n\n" +
 		//" -Close Chrome if already opened.\n" +

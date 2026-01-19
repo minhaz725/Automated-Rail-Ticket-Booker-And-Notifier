@@ -3,12 +3,14 @@ package utils
 import (
 	"Rail-Ticket-Notifier/utils/constants"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
+	"github.com/chromedp/chromedp"
 	"log"
 	"net/http"
 	"os"
@@ -32,42 +34,155 @@ func SetupChrome(window fyne.Window) bool {
 	}
 
 	// Quick check: is a chrome already running with debugging enabled?
-	if debugIsReady() {
+	chromeAlreadyRunning := debugIsReady()
+	if !chromeAlreadyRunning {
+		// Prepare isolated user data dir so we are sure flags are honored
+		profileDir, err := os.MkdirTemp("", "chrome-debug-profile-")
+		if err != nil {
+			log.Printf("Failed to create temp profile dir: %v\n", err)
+		}
+
+		label.SetText("Launching Chrome in debug mode...")
+		args := []string{"--remote-debugging-port=9222", "--restore-last-session", "--no-first-run", "--no-default-browser-check"}
+		if profileDir != "" {
+			args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
+		}
+		// Add the URL to open directly
+		args = append(args, constants.HOME_URL)
+		
+		launchCmd := exec.Command(chromePath, args...)
+		if err := launchCmd.Start(); err != nil {
+			log.Printf("Error launching Chrome with remote debugging: %v\n", err)
+			label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
+			return false
+		}
+		log.Println("Chrome launched with remote debugging port 9222.")
+
+		label.SetText("Waiting for debug port to become ready...")
+		if !waitForDebugPort(15 * time.Second) {
+			log.Println("Debug port not reachable within timeout.")
+			label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
+			return false
+		}
+	} else {
 		log.Println("Chrome is already running in debug mode.")
-		label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
-		customDialog.SetDismissText("Continue")
-		return true
+		// Navigate existing Chrome to eticket website
+		label.SetText("Opening railway ticket website...")
+		if err := navigateToEticketSite(); err != nil {
+			log.Printf("Failed to navigate to eticket site: %v\n", err)
+			label.SetText("Failed to open railway website. Please try again.")
+			return false
+		}
 	}
 
-	// Prepare isolated user data dir so we are sure flags are honored
-	profileDir, err := os.MkdirTemp("", "chrome-debug-profile-")
-	if err != nil {
-		log.Printf("Failed to create temp profile dir: %v\n", err)
-	}
+	// Now show login verification dialog
+	customDialog.Hide()
 
-	label.SetText("Launching Chrome in debug mode...")
-	args := []string{"--remote-debugging-port=9222", "--restore-last-session", "--no-first-run", "--no-default-browser-check"}
-	if profileDir != "" {
-		args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
-	}
-	launchCmd := exec.Command(chromePath, args...)
-	if err := launchCmd.Start(); err != nil {
-		log.Printf("Error launching Chrome with remote debugging: %v\n", err)
-		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
-		return false
-	}
-	log.Println("Chrome launched with remote debugging port 9222.")
+	var loginDialog *dialog.CustomDialog
+	loginLabel := widget.NewLabel(constants.CHROME_SETUP_LOGIN_MSG)
+	loginLabel.Wrapping = fyne.TextWrapWord
 
-	label.SetText("Waiting for debug port to become ready...")
-	if !waitForDebugPort(15 * time.Second) {
-		log.Println("Debug port not reachable within timeout.")
-		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
-		return false
-	}
+	var testLoginButton *widget.Button
+	testLoginButton = widget.NewButton("Test Login", func() {
+		testLoginButton.Disable()
+		loginLabel.SetText("Verifying login, please wait...")
+		go func() {
+			if verifyLogin() {
+				loginLabel.SetText(constants.CHROME_SETUP_LOGIN_SUCCESS_MSG)
+				loginDialog.SetDismissText("Continue")
+				testLoginButton.Hide()
+			} else {
+				loginLabel.SetText(constants.CHROME_SETUP_LOGIN_RETRY_MSG)
+				testLoginButton.Enable()
+			}
+		}()
+	})
 
-	label.SetText(constants.CHROME_SETUP_SUCCESS_MSG)
-	customDialog.SetDismissText("Continue")
+	loginContent := container.NewVBox(loginLabel, testLoginButton)
+	loginDialog = dialog.NewCustom("Login Verification", "Cancel", loginContent, window)
+	loginDialog.Show()
+
+	// Don't block here - return true and let the dialog handle verification
+	// The actual verification happens when user clicks Test Login
+	// For now, we return true to proceed, verification happens in dialog
 	return true
+}
+
+// navigateToEticketSite opens the railway ticket website in the first existing tab of debug Chrome
+func navigateToEticketSite() error {
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	defer cancelAlloc()
+
+	// Get existing targets (tabs)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	targets, err := chromedp.Targets(allocCtx)
+	if err != nil {
+		return fmt.Errorf("failed to get targets: %w", err)
+	}
+
+	if len(targets) == 0 {
+		return fmt.Errorf("no browser tabs found")
+	}
+
+	// Use the first available page target
+	var targetID string
+	for _, t := range targets {
+		if t.Type == "page" {
+			targetID = string(t.TargetID)
+			break
+		}
+	}
+
+	if targetID == "" {
+		return fmt.Errorf("no page target found")
+	}
+
+	// Connect to the existing tab
+	tabCtx, tabCancel := chromedp.NewContext(allocCtx, chromedp.WithTargetID(targets[0].TargetID))
+	defer tabCancel()
+
+	// Set timeout
+	tabCtx, cancel = context.WithTimeout(tabCtx, 15*time.Second)
+	defer cancel()
+
+	_ = ctx // suppress unused warning
+
+	return chromedp.Run(tabCtx,
+		chromedp.Navigate(constants.HOME_URL),
+		chromedp.WaitReady("body"),
+	)
+}
+
+// verifyLogin checks if user is logged in by navigating to login URL and checking if it redirects
+func verifyLogin() bool {
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	defer cancelAlloc()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	// Set a timeout for the verification
+	ctx, cancel = context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var currentURL string
+	err := chromedp.Run(ctx,
+		chromedp.Navigate(constants.LOGIN_URL),
+		chromedp.WaitReady("body"),
+		chromedp.Sleep(2*time.Second), // Wait for any redirects
+		chromedp.Location(&currentURL),
+	)
+	if err != nil {
+		log.Printf("Login verification error: %v\n", err)
+		return false
+	}
+
+	log.Printf("Login verification - Current URL: %s\n", currentURL)
+	
+	// If URL is not login URL anymore, user is logged in (redirected to home or dashboard)
+	return !strings.HasSuffix(currentURL, "/login")
 }
 
 // debugIsReady does a quick GET to the debug version endpoint.

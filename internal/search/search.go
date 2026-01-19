@@ -108,19 +108,8 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	if err != nil {
 		log.Printf("Location error: %v\n", err)
 	}
-	if currentURL == constants.LOGIN_URL && constants.AUTO_LOGIN_ENABLED {
-		log.Println("Attempting auto login...")
-		if err := autoLogin(loginCtx, arguments.LOGIN_USERNAME, arguments.LOGIN_PASSWORD); err != nil {
-			log.Printf("Auto login error: %v\n", err)
-		} else {
-			err = chromedp.Run(loginCtx, chromedp.Sleep(1500*time.Millisecond), chromedp.Location(&currentURL))
-			if err != nil {
-				log.Printf("Sleep+Location error: %v\n", err)
-			}
-		}
-	}
 	if currentURL == constants.LOGIN_URL {
-		log.Println("Still on login page; continuing (session may require manual OTP). Searches will attempt anyway.")
+		log.Println("Still on login page; user should have logged in via setup dialog.")
 	} else {
 		log.Println("Logged in.")
 	}
@@ -674,73 +663,4 @@ func printHtml(err error, doc *goquery.Document) string {
 	}
 	log.Println(renderedHTML)
 	return renderedHTML
-}
-
-func autoLogin(ctx context.Context, username, password string) error {
-	js := `(function(u,p){
-   	function fill(cands,val){
-   		for(const sel of cands){
-   			let el=document.querySelector(sel);
-   			if(!el) continue;
-   			el.focus();
-   			el.value='';
-   			['keydown','keypress','input'].forEach(ev=>el.dispatchEvent(new KeyboardEvent(ev,{bubbles:true,cancelable:true,key:val.slice(-1)})));
-   			for(const ch of val){
-   				el.value+=ch;
-   				el.dispatchEvent(new Event('input',{bubbles:true}));
-   			}
-   			el.dispatchEvent(new Event('change',{bubbles:true}));
-   			el.blur();
-   			return sel;
-   		}
-   		return null;
-   	}
-   	const userSel=fill([
-   		'input[formcontrolname="mobile"]',
-   		'input[name="mobile"]',
-   		'input[name="username"]',
-   		'input[id*="mobile"]',
-   		'input[id="username"]',
-   		'input[name="email"]'
-   	], u);
-   	const passSel=fill([
-   		'input[formcontrolname="password"]',
-   		'input[type="password"]',
-   		'input[name="password"]',
-   		'input[id="password"]'
-   	], p);
-
-   	let btn=document.querySelector('button[type="submit"].login-form-submit-btn')||document.querySelector('button[type="submit"]');
-   	if(btn && (btn.disabled || btn.getAttribute('disabled')!==null)){
-   		btn.disabled=false; btn.removeAttribute('disabled');
-   	}
-   	if(btn){
-   		btn.focus();
-   		btn.click();
-   	}
-   	return {userSel,passSel,clicked:!!btn,btnDisabled:btn?btn.disabled:null};
-   })(%q,%q);`
-
-	var result struct {
-		UserSel     string `json:"userSel"`
-		PassSel     string `json:"passSel"`
-		Clicked     bool   `json:"clicked"`
-		BtnDisabled *bool  `json:"btnDisabled"`
-	}
-
-	if err := chromedp.Run(ctx,
-		chromedp.WaitReady("body"),
-		chromedp.Sleep(300*time.Millisecond),
-		chromedp.Evaluate(fmt.Sprintf(js, username, password), &result),
-		chromedp.Sleep(1200*time.Millisecond),
-	); err != nil {
-		return err
-	}
-
-	log.Printf("AutoLogin -> userSel:%s passSel:%s clicked:%v btnDisabled:%v\n", result.UserSel, result.PassSel, result.Clicked, result.BtnDisabled)
-
-	if !result.Clicked || result.UserSel == "" || result.PassSel == "" {
-		return fmt.Errorf("autologin incomplete (clicked=%v userSel=%s passSel=%s)", result.Clicked, result.UserSel, result.PassSel)
-	}
-	return nil
 }
