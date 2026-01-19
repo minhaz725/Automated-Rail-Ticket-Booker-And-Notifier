@@ -65,14 +65,10 @@ func SetupChrome(window fyne.Window) bool {
 			return false
 		}
 	} else {
-		log.Println("Chrome is already running in debug mode.")
-		// Navigate existing Chrome to eticket website
-		label.SetText("Opening railway ticket website...")
-		if err := navigateToEticketSite(); err != nil {
-			log.Printf("Failed to navigate to eticket site: %v\n", err)
-			label.SetText("Failed to open railway website. Please try again.")
-			return false
-		}
+		log.Println("Chrome is already running in debug mode. Using existing session.")
+		label.SetText("Chrome debug session found. Using existing session...")
+		// Don't try to navigate - user may already have the site open
+		// Just proceed to login verification
 	}
 
 	// Now show login verification dialog
@@ -99,7 +95,10 @@ func SetupChrome(window fyne.Window) bool {
 	})
 
 	loginContent := container.NewVBox(loginLabel, testLoginButton)
-	loginDialog = dialog.NewCustom("Login Verification", "Cancel", loginContent, window)
+	// Create a padded container to make dialog wider
+	paddedContent := container.NewPadded(loginContent)
+	paddedContent.Resize(fyne.NewSize(350, 150))
+	loginDialog = dialog.NewCustom("Login Verification", "Cancel", container.NewCenter(container.NewGridWrap(fyne.NewSize(350, 150), loginContent)), window)
 	loginDialog.Show()
 
 	// Don't block here - return true and let the dialog handle verification

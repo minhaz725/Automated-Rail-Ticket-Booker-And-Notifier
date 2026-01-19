@@ -17,6 +17,4 @@ type ElementsOfUI struct {
 	EmailEntry         *widget.Entry
 	PhoneEntry         *widget.Entry
 	SeatFaceEntry      *widget.RadioGroup
-	LoginUsernameEntry *widget.Entry
-	LoginPasswordEntry *widget.Entry
 }
