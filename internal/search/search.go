@@ -272,7 +272,7 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 							messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
 							log.Println("Seat found! Initiating seat holding process...")
 							// Seat holding process
-							holdDuration := 4 // minutes
+							holdDuration := 1 // minutes
 							jsCode := buildSeatHoldingJS(selectedSpecificTrain, selectedClass, holdDuration)
 							holdingStartTime := time.Now()
 							var success bool

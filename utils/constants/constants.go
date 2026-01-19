@@ -13,8 +13,8 @@ const (
 	SENDER_EMAIL_NAME     = "Automated Rail Ticket System by Minhaz"
 	OWNER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
-	SEARCH_DELAY_MIN_SEC  = 2
-	SEARCH_DELAY_MAX_SEC  = 7
+	SEARCH_DELAY_MIN_SEC  = 3
+	SEARCH_DELAY_MAX_SEC  = 8
 	// Auto login configuration (NOTE: storing credentials in source is insecure; consider env vars)
 	AUTO_LOGIN_ENABLED = true
 	INTRO_MSG          = "" +

@@ -39,22 +39,6 @@ func SetupChrome(window fyne.Window) bool {
 		return true
 	}
 
-	label.SetText("Closing existing Chrome processes (graceful)...")
-	if err := killChrome(false); err != nil {
-		log.Printf("Graceful chrome termination attempt issue: %v\n", err)
-	}
-
-	// Wait for chrome to exit (grace period) else force kill
-	if !waitForChromeExit(5 * time.Second) {
-		label.SetText("Forcing Chrome to close...")
-		if err := killChrome(true); err != nil {
-			log.Printf("Force chrome termination attempt issue: %v\n", err)
-		}
-		if !waitForChromeExit(10 * time.Second) { // longer wait after force
-			log.Println("Chrome did not close after force kill, proceeding anyway.")
-		}
-	}
-
 	// Prepare isolated user data dir so we are sure flags are honored
 	profileDir, err := os.MkdirTemp("", "chrome-debug-profile-")
 	if err != nil {
