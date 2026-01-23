@@ -3,15 +3,18 @@ package search
 import (
 	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/internal/notifier"
-	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+	"io"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -20,336 +23,347 @@ import (
 	"time"
 )
 
-// getUserAgent returns a random user agent from a pool of realistic browser user agents
-func getUserAgent() string {
-	userAgents := []string{
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/121.0",
-		"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/121.0",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
-	}
-	return userAgents[rand.Intn(len(userAgents))]
+type CapturedAuth struct {
+	Authorization string
+	DeviceId      string
+	DeviceKey     string
+	UserAgent     string
 }
 
-// getRandomDelay returns a random delay between SEARCH_DELAY_MIN_SEC and SEARCH_DELAY_MAX_SEC
-func getRandomDelay() time.Duration {
-	min := constants.SEARCH_DELAY_MIN_SEC
-	max := constants.SEARCH_DELAY_MAX_SEC
-	delay := rand.Intn(max-min+1) + min
-	return time.Duration(delay) * time.Second
+type TrainResponse struct {
+	Data struct {
+		Trains []Train `json:"trains"`
+	} `json:"data"`
 }
+
+type Train struct {
+	TripNumber    string     `json:"trip_number"`
+	DepartureTime string     `json:"departure_date_time"`
+	ArrivalTime   string     `json:"arrival_date_time"`
+	SeatTypes     []SeatType `json:"seat_types"`
+}
+
+type SeatType struct {
+	Type       string `json:"type"`
+	Fare       string `json:"fare"`
+	SeatCounts struct {
+		Online  int `json:"online"`
+		Offline int `json:"offline"`
+	} `json:"seat_counts"`
+}
+
+// CaptureAuthFromBrowser gets auth headers from the logged-in browser
+func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
+	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://127.0.0.1:9222")
+	defer cancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	auth := &CapturedAuth{}
+
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		if e, ok := ev.(*network.EventRequestWillBeSent); ok {
+			if strings.Contains(e.Request.URL, "railspaapi.shohoz.com") {
+				for k, v := range e.Request.Headers {
+					if str, ok := v.(string); ok {
+						switch k {
+						case "Authorization":
+							auth.Authorization = str
+						case "X-Device-Id":
+							auth.DeviceId = str
+						case "X-Device-Key":
+							auth.DeviceKey = str
+						case "User-Agent":
+							auth.UserAgent = str
+						}
+					}
+				}
+			}
+		}
+	})
+
+	err := chromedp.Run(ctx, network.Enable())
+	if err != nil {
+		return nil, err
+	}
+
+	// Trigger one API call to capture headers
+	err = chromedp.Run(ctx,
+		chromedp.Navigate(searchUrl),
+		chromedp.WaitReady("body"),
+		chromedp.Sleep(10*time.Second),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if auth.Authorization == "" {
+		return nil, fmt.Errorf("failed to capture auth token")
+	}
+
+	log.Println("Auth captured successfully!")
+	return auth, nil
+}
+
+// SearchTrainsAPI calls the API directly
+func SearchTrainsAPI(auth *CapturedAuth, from, to, date, seatClass string) (*TrainResponse, error) {
+	url := fmt.Sprintf(
+		"https://railspaapi.shohoz.com/v1.0/web/bookings/search-trips-v2?from_city=%s&to_city=%s&date_of_journey=%s&seat_class=%s",
+		from, to, date, seatClass,
+	)
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", auth.Authorization)
+	req.Header.Set("X-Device-Id", auth.DeviceId)
+	req.Header.Set("X-Device-Key", auth.DeviceKey)
+	req.Header.Set("User-Agent", auth.UserAgent)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+	req.Header.Set("Referer", "https://eticket.railway.gov.bd/")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result TrainResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// FindAvailableSeats checks for seats matching criteria
+func FindAvailableSeats(trains *TrainResponse, targetTrains []string, targetSeatTypes []string, minSeats uint) (string, string, int) {
+	for _, train := range trains.Data.Trains {
+		for _, targetTrain := range targetTrains {
+			if !strings.Contains(train.TripNumber, targetTrain) {
+				continue
+			}
+			for _, seat := range train.SeatTypes {
+				for _, targetType := range targetSeatTypes {
+					if seat.Type == targetType && seat.SeatCounts.Online >= int(minSeats) {
+						return train.TripNumber, seat.Type, seat.SeatCounts.Online
+					}
+				}
+			}
+		}
+	}
+	return "", "", 0
+}
+
+// ========== MAIN SEARCH ==========
 
 func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool) {
-	// prevent unused param warning (future use maybe dynamic booking strategy)
 	_ = seatBookerFunction
-
-	// Initialize random seed
 	rand.Seed(time.Now().UnixNano())
 
-	attemptNo := 0
-	url := originalUrl
-	altUrl := ""
-	searchAltUrl := false
-	selectedSpecificTrain := ""
-	selectedClass := ""
-	var availableSeatClassArray []string
-	seatFound := false
-	messageBodyUpdated := false
-	messageBody := ""
-	loadTimer := 1 * time.Second // Reduced initial loadTimer
 	var searchCtx context.Context
+	messageBody := ""
 
-	// Add cleanup handler for graceful shutdown
+	// Cleanup handler
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		log.Println("Received exit signal. Cleaning up seats...")
+		log.Println("Received exit signal. Cleaning up...")
 		if searchCtx != nil {
-			err := chromedp.Run(searchCtx, chromedp.Evaluate(`
-   			if (typeof window.stopSeatHolding === 'function') {
-   				window.stopSeatHolding();
-   				console.log("Seats released due to app exit");
-   			}
-   		`, nil))
-			if err != nil {
-				log.Printf("Cleanup JS error: %v\n", err)
-			}
+			chromedp.Run(searchCtx, chromedp.Evaluate(`
+				if (typeof window.stopSeatHolding === 'function') {
+					window.stopSeatHolding();
+				}
+			`, nil))
 		}
-		log.Println("Cleanup completed. Exiting...")
 		os.Exit(0)
 	}()
 
-	// Login (remote debugger chrome assumed running)
-	loginAlloc, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
-	loginCtx, cancelLogin := chromedp.NewContext(loginAlloc)
-	defer cancelLogin()
-	defer cancelAlloc()
-
-	err := chromedp.Run(loginCtx,
-		emulation.SetUserAgentOverride(getUserAgent()),
-		chromedp.Navigate(constants.LOGIN_URL),
-		chromedp.WaitReady("body"),
-	)
+	// Step 1: Capture auth from browser
+	log.Println("Capturing auth from browser...")
+	auth, err := CaptureAuthFromBrowser(originalUrl)
 	if err != nil {
-		log.Fatal("Login page navigate failed:", err)
+		log.Fatal("Failed to capture auth:", err)
 	}
 
-	var currentURL string
-	err = chromedp.Run(loginCtx, chromedp.Location(&currentURL))
-	if err != nil {
-		log.Printf("Location error: %v\n", err)
-	}
-	if currentURL == constants.LOGIN_URL {
-		log.Println("Still on login page; user should have logged in via setup dialog.")
-	} else {
-		log.Println("Logged in.")
-	}
-
+	// Generate alt URL if needed
+	altUrl := ""
+	searchAltUrl := false
 	if strings.EqualFold(arguments.FROM, "Dhaka") {
 		altUrl = arguments.GenerateAltURL()
 		searchAltUrl = true
 		log.Println("Alt search (Biman Bandar) enabled")
 	}
 
-	// Main search loop - use login context for headless searches
+	attemptNo := 0
+
+	// Step 2: Search loop using direct API
 	for {
-		log.Println("Search Started")
-		loadTimer = 1 * time.Second // Resetting initial loadTimer
-		url = createAltUrl(originalUrl, searchAltUrl, attemptNo, url, altUrl)
+		log.Printf("Search attempt %d...", attemptNo+1)
 
-		// Use the existing login context for headless searches
-		searchCtx = loginCtx
-		var searchCancel context.CancelFunc
-
-		// If seat was found and we need to open a new tab for booking, create new context
-		if seatFound {
-			log.Println("Creating new tab for seat holding...")
-			bookingAlloc, bookingAllocCancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
-			defer bookingAllocCancel()
-			searchCtx, searchCancel = chromedp.NewContext(bookingAlloc)
-			defer searchCancel()
+		// Alternate between URLs if needed
+		currentFrom := arguments.FROM
+		if searchAltUrl && attemptNo%2 == 1 {
+			currentFrom = "Biman Bandar" // or whatever the alt is
+			_ = altUrl
 		}
 
-		// Get a random user agent for this search attempt
-		currentUserAgent := getUserAgent()
-		log.Printf("Using User Agent: %s", currentUserAgent)
-
-		err = chromedp.Run(searchCtx,
-			emulation.SetUserAgentOverride(currentUserAgent),
-			chromedp.Navigate(url),
-			chromedp.WaitReady("body"),
-			chromedp.Sleep(loadTimer), // You can try removing this line entirely if page loads are fast
-		)
+		trains, err := SearchTrainsAPI(auth, currentFrom, arguments.TO, arguments.DATE, arguments.SEAT_TYPE_ARRAY[0])
 		if err != nil {
-			if strings.Contains(err.Error(), "net::ERR_INTERNET_DISCONNECTED") {
-				log.Println("Network issue. Retrying...")
-			} else {
-				log.Printf("Navigate error: %v\n", err)
-			}
-			if loadTimer < 20*time.Second {
-				loadTimer += 2 * time.Second
-			}
-			// Only cancel if we created a new context for booking
-			if seatFound && searchCancel != nil {
-				searchCancel()
-			}
-			attemptNo++
-			time.Sleep(3 * time.Second)
-			continue
-		}
+			log.Printf("API error: %v", err)
 
-		var afterNav string
-		err = chromedp.Run(searchCtx, chromedp.Location(&afterNav))
-		if err != nil {
-			log.Printf("Search location error: %v\n", err)
-		}
-		if afterNav == constants.LOGIN_URL {
-			log.Println("Lost session (redirect to login). Will re-login next loop.")
-			// Only cancel if we created a new context for booking
-			if seatFound && searchCancel != nil {
-				searchCancel()
-			}
-			attemptNo++
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		// Poll for trip results (max 4s)
-		var haveResults bool
-		for i := 0; i < 20; i++ { // 20 * 200ms = 4s
-			_ = chromedp.Run(searchCtx, chromedp.Evaluate(`document.querySelectorAll('.single-trip-wrapper').length>0`, &haveResults))
-			if haveResults {
-				break
-			}
-			time.Sleep(200 * time.Millisecond)
-		}
-		if !haveResults {
-			log.Println("No results yet; increasing wait window")
-			if loadTimer < 20*time.Second {
-				loadTimer += 2 * time.Second
-			}
-			// Only cancel if we created a new context for booking
-			if seatFound && searchCancel != nil {
-				searchCancel()
-			}
-			attemptNo++
-
-			// Use random delay instead of fixed delay
-			randomDelay := getRandomDelay()
-			log.Printf("Waiting %v seconds before next search attempt...", randomDelay.Seconds())
-			time.Sleep(randomDelay)
-			continue
-		}
-
-		var pageContent string
-		if err := chromedp.Run(searchCtx, chromedp.InnerHTML("html", &pageContent)); err != nil {
-			log.Printf("HTML extraction error: %v\n", err)
-			// Only cancel if we created a new context for booking
-			if seatFound && searchCancel != nil {
-				searchCancel()
-			}
-			attemptNo++
-			continue
-		}
-
-		doc, err := goquery.NewDocumentFromReader(strings.NewReader(pageContent))
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Check for seats only if not already found
-		if !seatFound {
-			doc.Find(".single-trip-wrapper").Each(func(i int, el *goquery.Selection) {
-				trainName := el.Find(".trip-name h2").Text()
-				if trainName == "" || !strings.Contains(trainName, arguments.SPECIFIC_TRAIN_ARRAY[0]) {
-					return
+			// Token expired - recapture
+			if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "unauthorized") {
+				log.Println("Token expired, recapturing...")
+				auth, err = CaptureAuthFromBrowser(originalUrl)
+				if err != nil {
+					log.Printf("Failed to recapture auth: %v", err)
 				}
-				fmt.Println("Search URL:", url)
-				fmt.Println("Train Name:", trainName)
-				classFound := false
-				el.Find(".seat-classes-row .seat-class-name, .seat-classes-row .all-seats").Each(func(i int, s *goquery.Selection) {
-					if s.HasClass("seat-class-name") {
-						className := s.Text()
-						for _, desired := range arguments.SEAT_TYPE_ARRAY {
-							if className == desired {
-								fmt.Print("Class Name:", className)
-								availableSeatClassArray = append(availableSeatClassArray, className)
-								classFound = true
-							}
-						}
-					} else if s.HasClass("all-seats") && classFound {
-						seatCountStr := strings.TrimSpace(s.Text())
-						seatCount, _ := strconv.ParseUint(seatCountStr, 10, 0)
-						fmt.Println(" Seat Count:", seatCount)
-						classFound = false
-						if uint(seatCount) >= arguments.SEAT_COUNT {
-							seatFound = true
-							selectedSpecificTrain = trainName
-							selectedClass = utils.FindFirstMatch(availableSeatClassArray, arguments.SEAT_TYPE_ARRAY)
-							if selectedClass == "" {
-								log.Fatal("class selection error")
-							}
-							messageBody, messageBodyUpdated = updateMessageBody(messageBodyUpdated, messageBody, selectedSpecificTrain, selectedClass)
-							log.Println("Seat found! Initiating seat holding process...")
-							// Seat holding process
-							holdDuration := 1 // minutes
-							jsCode := buildSeatHoldingJS(selectedSpecificTrain, selectedClass, holdDuration)
-							holdingStartTime := time.Now()
-							var success bool
-							if err := chromedp.Run(searchCtx, chromedp.Evaluate(jsCode, &success), chromedp.Sleep(2*time.Second)); err != nil {
-								log.Printf("Seat holding JS error: %v\n", err)
-							} else {
-								log.Println("Seat holding initiated successfully. Seats will be cycled every 4 minutes.")
-								log.Println("To stop holding: execute 'window.stopSeatHolding()' in browser console")
-							}
-							// Wait for seat selection and extract details
-							time.Sleep(5 * time.Second)
-							var seatDetails struct {
-								Coach     string   `json:"coach"`
-								SeatClass string   `json:"seatClass"`
-								Seats     []string `json:"seats"`
-							}
-							err = chromedp.Run(searchCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: 'Unknown', seatClass: 'Unknown', seats: []}`, &seatDetails))
-							if err != nil {
-								log.Printf("Seat details JS error: %v\n", err)
-							}
+			}
 
-							// Check if enough seats were selected
-							if len(seatDetails.Seats) < int(arguments.SEAT_COUNT) {
-								log.Printf("Seat selection failed: only %d out of %d seats selected. Discarding and continuing search...", len(seatDetails.Seats), arguments.SEAT_COUNT)
-								// If a new tab was opened for booking, close it
-								if seatFound && searchCancel != nil {
-									searchCancel()
-								}
-								// Reset state for next search
-								seatFound = false
-								selectedSpecificTrain = ""
-								selectedClass = ""
-								availableSeatClassArray = nil
-								messageBodyUpdated = false
-								messageBody = ""
-								return // Exit current attempt, continue search loop
-							}
+			attemptNo++
+			time.Sleep(getRandomDelay())
+			continue
+		}
 
-							if len(seatDetails.Seats) > 0 {
-								messageBody += fmt.Sprintf("Coach: %s\n", seatDetails.Coach)
-								messageBody += fmt.Sprintf("Selected Seats: %s\n", strings.Join(seatDetails.Seats, ", "))
-							}
-							messageBody += "The tab will remain open. Complete Booking.\n"
-							log.Println("Seat holding process initiated. Tab will remain open.")
-							log.Println("Complete message:", messageBody)
-							log.Println("Keeping tab open for seat holding. Seats will cycle every 4 minutes...")
-							emailSent := false
-							for {
-								time.Sleep(30 * time.Second)
-								var holdingStopped bool
-								err := chromedp.Run(searchCtx, chromedp.Evaluate(`typeof window.stopSeatHolding === 'undefined'`, &holdingStopped))
-								if err != nil {
-									log.Printf("Error checking holding status: %v", err)
-									break
-								}
-								if holdingStopped {
-									log.Println("Seat holding has been stopped by user.")
-									messageBody += "Seat holding stopped. All seats released.\n"
-									break
-								}
-								if !emailSent && time.Since(holdingStartTime) > time.Duration(holdDuration)*time.Second {
-									log.Println("Sending notification email after first booking cycle...")
-									if notifier.SendEmail(messageBody) {
-										log.Println("Email sent successfully")
-										emailSent = true
-									} else {
-										log.Println("Failed to send email")
-									}
-								}
-								log.Printf("Seat holding active... (running indefinitely)")
-							}
-							return
-						} else {
-							availableSeatClassArray = availableSeatClassArray[:len(availableSeatClassArray)-1]
-						}
-					}
-				})
-			})
+		// Log available trains
+		log.Printf("Found %d trains", len(trains.Data.Trains))
+		for _, t := range trains.Data.Trains {
+			for _, s := range t.SeatTypes {
+				if s.SeatCounts.Online > 0 {
+					log.Printf("  %s - %s: %d seats", t.TripNumber, s.Type, s.SeatCounts.Online)
+				}
+			}
+		}
+
+		// Check for matching seats
+		trainName, seatType, seatCount := FindAvailableSeats(
+			trains,
+			arguments.SPECIFIC_TRAIN_ARRAY,
+			arguments.SEAT_TYPE_ARRAY,
+			arguments.SEAT_COUNT,
+		)
+
+		if trainName != "" {
+			log.Printf("SEAT FOUND: %s - %s - %d seats!", trainName, seatType, seatCount)
+
+			messageBody = fmt.Sprintf("Train: %s\nClass: %s\nAvailable: %d seats\n", trainName, seatType, seatCount)
+
+			// Step 3: Open browser for booking
+			success := openBrowserAndBook(trainName, seatType, originalUrl, &messageBody)
+			if success {
+				return messageBody, true
+			}
+			// If booking failed, continue searching
+			log.Println("Booking failed, continuing search...")
 		}
 
 		attemptNo++
-		log.Println("Search Ended - Attempt:", attemptNo)
-
-		// Use random delay between all search attempts
 		randomDelay := getRandomDelay()
-		log.Printf("Waiting %v seconds before next search attempt...", randomDelay.Seconds())
+		log.Printf("Waiting %.0f seconds...", randomDelay.Seconds())
 		time.Sleep(randomDelay)
 	}
+}
+
+// openBrowserAndBook handles the actual booking via ChromeDP
+func openBrowserAndBook(trainName, seatClass, url string, messageBody *string) bool {
+	log.Println("Opening browser for booking...")
+
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	defer cancelAlloc()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	// Navigate to search page
+	err := chromedp.Run(ctx,
+		emulation.SetUserAgentOverride(getUserAgent()),
+		chromedp.Navigate(url),
+		chromedp.WaitReady("body"),
+	)
+	if err != nil {
+		log.Printf("Navigate error: %v", err)
+		return false
+	}
+
+	// Wait for page to load results
+	log.Println("Waiting for page results...")
+	time.Sleep(10 * time.Second)
+
+	// Run seat holding JS
+	holdDuration := 1
+	jsCode := buildSeatHoldingJS(trainName, seatClass, holdDuration)
+
+	var success bool
+	err = chromedp.Run(ctx,
+		chromedp.Evaluate(jsCode, &success),
+		chromedp.Sleep(2*time.Second),
+	)
+	if err != nil {
+		log.Printf("Seat holding JS error: %v", err)
+		return false
+	}
+
+	log.Println("Seat holding initiated!")
+
+	// Wait for seat selection
+	time.Sleep(5 * time.Second)
+
+	// Get selected seat details
+	var seatDetails struct {
+		Coach     string   `json:"coach"`
+		SeatClass string   `json:"seatClass"`
+		Seats     []string `json:"seats"`
+	}
+	chromedp.Run(ctx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: '', seatClass: '', seats: []}`, &seatDetails))
+
+	if len(seatDetails.Seats) < int(arguments.SEAT_COUNT) {
+		log.Printf("Only %d seats selected, need %d. Aborting.", len(seatDetails.Seats), arguments.SEAT_COUNT)
+		return false
+	}
+
+	*messageBody += fmt.Sprintf("Coach: %s\nSeats: %s\n", seatDetails.Coach, strings.Join(seatDetails.Seats, ", "))
+
+	// Send notification
+	log.Println("Sending notification...")
+	notifier.SendEmail(*messageBody)
+	notifier.MakeCall()
+
+	// Keep browser open for manual completion
+	log.Println("Seat holding active. Complete booking manually.")
+	log.Println("Press Ctrl+C to exit.")
+
+	// Wait indefinitely
+	select {}
+}
+
+// ========== HELPERS ==========
+
+func getUserAgent() string {
+	userAgents := []string{
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+	}
+	return userAgents[rand.Intn(len(userAgents))]
+}
+
+func getRandomDelay() time.Duration {
+	min := constants.SEARCH_DELAY_MIN_SEC
+	max := constants.SEARCH_DELAY_MAX_SEC
+	delay := rand.Intn(max-min+1) + min
+	return time.Duration(delay) * time.Second
 }
 
 func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int) string {

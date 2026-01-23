@@ -43,13 +43,19 @@ func SetupChrome(window fyne.Window) bool {
 		}
 
 		label.SetText("Launching Chrome in debug mode...")
-		args := []string{"--remote-debugging-port=9222", "--restore-last-session", "--no-first-run", "--no-default-browser-check"}
+		args := []string{
+			"--remote-debugging-port=9222",
+			"--restore-last-session",
+			"--no-first-run",
+			"--no-default-browser-check",
+			"--disable-blink-features=AutomationControlled",
+		}
 		if profileDir != "" {
 			args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
 		}
 		// Add the URL to open directly
 		args = append(args, constants.HOME_URL)
-		
+
 		launchCmd := exec.Command(chromePath, args...)
 		if err := launchCmd.Start(); err != nil {
 			log.Printf("Error launching Chrome with remote debugging: %v\n", err)
@@ -179,7 +185,7 @@ func verifyLogin() bool {
 	}
 
 	log.Printf("Login verification - Current URL: %s\n", currentURL)
-	
+
 	// If URL is not login URL anymore, user is logged in (redirected to home or dashboard)
 	return !strings.HasSuffix(currentURL, "/login")
 }
