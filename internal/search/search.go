@@ -16,7 +16,9 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -52,7 +54,6 @@ type SeatType struct {
 	} `json:"seat_counts"`
 }
 
-// CaptureAuthFromBrowser gets auth headers from the logged-in browser
 func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
 	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://127.0.0.1:9222")
 	defer cancel()
@@ -104,8 +105,8 @@ func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
 	if auth.Authorization == "" {
 		return nil, fmt.Errorf("failed to capture auth token")
 	}
-
-	log.Println("Auth captured successfully!")
+	log.Println("Auth captured! Navigating to home...")
+	chromedp.Run(ctx, chromedp.Navigate("https://eticket.railway.gov.bd"))
 	return auth, nil
 }
 
@@ -165,14 +166,51 @@ func FindAvailableSeats(trains *TrainResponse, targetTrains []string, targetSeat
 	return "", "", 0
 }
 
+func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl string, messageBody *string) bool {
+	log.Println("SEATS FOUND!")
+
+	// Send notifications FIRST
+	*messageBody += fmt.Sprintf("\nURL: %s\n", searchUrl)
+	notifier.SendEmail(*messageBody)
+	notifier.MakeCall()
+
+	log.Println("Opening booking URL in a fresh browser...")
+
+	// Open in default browser (NOT controlled by CDP)
+	var cmd *exec.Cmd
+	fmt.Println(searchUrl)
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", searchUrl)
+	case "darwin":
+		cmd = exec.Command("open", searchUrl)
+	case "linux":
+		cmd = exec.Command("xdg-open", searchUrl)
+	}
+	err := cmd.Start()
+	if err != nil {
+		log.Printf("Failed to open browser: %v", err)
+	}
+
+	log.Println("==========================================")
+	log.Println("BOOK NOW! URL opened in your browser.")
+	log.Println("==========================================")
+
+	// Keep searching in case this one fails
+	return false // Return false to continue searching
+}
+
 // ========== MAIN SEARCH ==========
 
 func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool) {
 	_ = seatBookerFunction
 	rand.Seed(time.Now().UnixNano())
 
-	var searchCtx context.Context
 	messageBody := ""
+
+	// Setup browser context - KEEP THIS OPEN FOR THE ENTIRE SESSION
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	browserCtx, cancelBrowser := chromedp.NewContext(allocCtx)
 
 	// Cleanup handler
 	c := make(chan os.Signal, 1)
@@ -180,13 +218,13 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	go func() {
 		<-c
 		log.Println("Received exit signal. Cleaning up...")
-		if searchCtx != nil {
-			chromedp.Run(searchCtx, chromedp.Evaluate(`
-				if (typeof window.stopSeatHolding === 'function') {
-					window.stopSeatHolding();
-				}
-			`, nil))
-		}
+		chromedp.Run(browserCtx, chromedp.Evaluate(`
+			if (typeof window.stopSeatHolding === 'function') {
+				window.stopSeatHolding();
+			}
+		`, nil))
+		cancelBrowser()
+		cancelAlloc()
 		os.Exit(0)
 	}()
 
@@ -212,10 +250,9 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	for {
 		log.Printf("Search attempt %d...", attemptNo+1)
 
-		// Alternate between URLs if needed
 		currentFrom := arguments.FROM
 		if searchAltUrl && attemptNo%2 == 1 {
-			currentFrom = "Biman Bandar" // or whatever the alt is
+			currentFrom = "Biman Bandar"
 			_ = altUrl
 		}
 
@@ -223,7 +260,6 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		if err != nil {
 			log.Printf("API error: %v", err)
 
-			// Token expired - recapture
 			if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "unauthorized") {
 				log.Println("Token expired, recapturing...")
 				auth, err = CaptureAuthFromBrowser(originalUrl)
@@ -257,15 +293,13 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 
 		if trainName != "" {
 			log.Printf("SEAT FOUND: %s - %s - %d seats!", trainName, seatType, seatCount)
-
 			messageBody = fmt.Sprintf("Train: %s\nClass: %s\nAvailable: %d seats\n", trainName, seatType, seatCount)
 
-			// Step 3: Open browser for booking
-			success := openBrowserAndBook(trainName, seatType, originalUrl, &messageBody)
+			// Step 3: Use the SAME browser context to book
+			success := bookSeatsInExistingTab(browserCtx, trainName, seatType, originalUrl, &messageBody)
 			if success {
 				return messageBody, true
 			}
-			// If booking failed, continue searching
 			log.Println("Booking failed, continuing search...")
 		}
 
