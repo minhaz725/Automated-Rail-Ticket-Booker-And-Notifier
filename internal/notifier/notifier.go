@@ -4,7 +4,9 @@ import (
 	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
 	"fmt"
+	"net/http"
 	"net/smtp"
+	"net/url"
 	"strings"
 )
 
@@ -31,34 +33,51 @@ func SendEmail(messageBody string) bool {
 		return false
 	}
 	fmt.Println("Email Sent Successfully!")
-	////makeCall()
 	return true
 }
 
 func MakeCall() bool {
+	apiURL := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Calls.json", constants.TWILIO_ACCOUNT_SID)
 
-	//urlTimu := "https://e83c-103-243-82-92.ngrok-free.app/call/timu"
-	//
-	//// Make a GET request to the specified URL
-	//_, err := http.Get(urlTimu)
-	//if err != nil {
-	//	fmt.Println("Error making GET request:", err)
-	//	return false
-	//} else {
-	//	fmt.Println("call made successfully")
-	//}
-	//
-	//urlMuna := "https://e83c-103-243-82-92.ngrok-free.app/call/muna"
-	//
-	//// Make a GET request to the specified URL
-	//_, err = http.Get(urlMuna)
-	//if err != nil {
-	//	fmt.Println("Error making GET request:", err)
-	//	return false
-	//} else {
-	//	fmt.Println("call made successfully")
-	//}
-	return true
+	twiml := `<Response>
+		<Say voice="alice">
+			Alert! You have received a new ticket.
+			This is a high priority notification.
+			Please check your dashboard immediately.
+		</Say>
+		<Pause length="2"/>
+		<Say>Thank you.</Say>
+	</Response>`
+
+	data := url.Values{}
+	data.Set("To", constants.TWILIO_TO_NUMBER)
+	data.Set("From", constants.TWILIO_FROM_NUMBER)
+	data.Set("Twiml", twiml)
+
+	req, err := http.NewRequest("POST", apiURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return false
+	}
+
+	req.SetBasicAuth(constants.TWILIO_ACCOUNT_SID, constants.TWILIO_AUTH_TOKEN)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error making call:", err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		fmt.Println("Call initiated successfully!")
+		return true
+	}
+
+	fmt.Printf("Call failed with status: %d\n", resp.StatusCode)
+	return false
 }
 
 func generateMail(messageBody string, to []string) string {

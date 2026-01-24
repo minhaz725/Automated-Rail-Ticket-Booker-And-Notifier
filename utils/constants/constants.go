@@ -1,25 +1,25 @@
 package constants
 
 const (
-	BASE_URL              = "https://eticket.railway.gov.bd/booking/train/search/?"
-	LOGIN_URL             = "https://eticket.railway.gov.bd/login"
-	HOME_URL              = "https://eticket.railway.gov.bd"
-	FROM_KEY              = "fromcity="
-	TO_KEY                = "&tocity="
-	DATE_KEY              = "&doj="
-	CLASS_KEY             = "&class="
-	DEBUG_CHROME_URL      = "http://localhost:9222"
-	DEBUG_MODE_CHECK_URL  = "http://127.0.0.1:9222/json/version"
-	SENDER_EMAIL_ADDRESS  = "minhaztimu7250@gmail.com"
-	SENDER_EMAIL_NAME     = "Automated Rail Ticket System by Minhaz"
-	OWNER_EMAIL_ADDRESS   = "minhaz725@gmail.com"
-	SENDER_EMAIL_PASSWORD = "yjia widg uwor uqfo"
-	SEARCH_DELAY_MIN_SEC  = 3
-	SEARCH_DELAY_MAX_SEC  = 8
-	CHROME_SETUP_LOGIN_MSG        = "Please log in to the railway website in the Chrome browser that just opened.\nOnce logged in, click 'Test Login' to verify."
-	CHROME_SETUP_LOGIN_RETRY_MSG  = "Login verification failed. Please try logging in again and click 'Test Login'."
+	BASE_URL                       = "https://eticket.railway.gov.bd/booking/train/search/?"
+	LOGIN_URL                      = "https://eticket.railway.gov.bd/login"
+	HOME_URL                       = "https://eticket.railway.gov.bd"
+	FROM_KEY                       = "fromcity="
+	TO_KEY                         = "&tocity="
+	DATE_KEY                       = "&doj="
+	CLASS_KEY                      = "&class="
+	DEBUG_CHROME_URL               = "http://localhost:9222"
+	DEBUG_MODE_CHECK_URL           = "http://127.0.0.1:9222/json/version"
+	SENDER_EMAIL_ADDRESS           = "minhaztimu7250@gmail.com"
+	SENDER_EMAIL_NAME              = "Automated Rail Ticket System by Minhaz"
+	OWNER_EMAIL_ADDRESS            = "minhaz725@gmail.com"
+	SENDER_EMAIL_PASSWORD          = "yjia widg uwor uqfo"
+	SEARCH_DELAY_MIN_SEC           = 3
+	SEARCH_DELAY_MAX_SEC           = 8
+	CHROME_SETUP_LOGIN_MSG         = "Please log in to the railway website in the Chrome browser that just opened.\nOnce logged in, click 'Test Login' to verify."
+	CHROME_SETUP_LOGIN_RETRY_MSG   = "Login verification failed. Please try logging in again and click 'Test Login'."
 	CHROME_SETUP_LOGIN_SUCCESS_MSG = "Login verified successfully!"
-	INTRO_MSG          = "" +
+	INTRO_MSG                      = "" +
 		"\t\t\t\t\t **** PLEASE READ IF YOU'RE USING FIRST TIME **** \n\n" +
 		//" -Close Chrome if already opened.\n" +
 		//" -Press Windows key + R to open Run.\n" +
@@ -58,4 +58,8 @@ const (
 	CHROME_SETUP_SUCCESS_MSG = "Chrome Setup Successful! Fill the form and hit search button!\n " +
 		"\t\tDon't close chrome till the application ends."
 	CHROME_SETUP_FAILURE_MSG = "Chrome Setup Failed, check if chrome is installed and your os is supported (Closing in 5 seconds)"
+	TWILIO_ACCOUNT_SID       = "AC189cf0c1c4d561e1cdb4e9c12339ed55"
+	TWILIO_AUTH_TOKEN        = "661efe72735e203c05dc6dd1f38af4a7"
+	TWILIO_FROM_NUMBER       = "+16025586525"
+	TWILIO_TO_NUMBER         = "+8801521487070"
 )
