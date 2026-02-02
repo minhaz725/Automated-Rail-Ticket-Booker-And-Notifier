@@ -50,11 +50,11 @@ func MakeCall(number string) bool {
 	</Response>`
 
 	data := url.Values{}
-	data.Set("To", constants.TWILIO_TO_NUMBER)
+	data.Set("From", constants.TWILIO_FROM_NUMBER)
 	if number == "" {
-		data.Set("From", constants.TWILIO_FROM_NUMBER)
+		data.Set("To", constants.TWILIO_TO_NUMBER)
 	} else {
-		data.Set("From", number)
+		data.Set("To", number)
 	}
 
 	data.Set("Twiml", twiml)
