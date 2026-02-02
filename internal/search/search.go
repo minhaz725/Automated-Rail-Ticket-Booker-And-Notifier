@@ -333,7 +333,7 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	log.Println("PAGE LOADED! Running seat selection JS...")
 
 	// Execute seat holding JS
-	jsCode := buildSeatHoldingJS(trainName, seatClass, 1)
+	jsCode := buildSeatHoldingJS(trainName, seatClass, 3)
 	chromedp.Run(bookingCtx, chromedp.Evaluate(jsCode, nil))
 
 	// Poll for seat selection completion with faster polling (200ms intervals)
