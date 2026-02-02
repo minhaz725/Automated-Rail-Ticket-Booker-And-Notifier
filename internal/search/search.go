@@ -145,15 +145,16 @@ func SearchTrainsAPI(auth *CapturedAuth, from, to, date, seatClass string) (*Tra
 	return &result, nil
 }
 
-// FindAvailableSeats checks for seats matching criteria
+// FindAvailableSeats checks for seats matching criteria, respecting seat type priority order
 func FindAvailableSeats(trains *TrainResponse, targetTrains []string, targetSeatTypes []string, minSeats uint) (string, string, int) {
-	for _, train := range trains.Data.Trains {
-		for _, targetTrain := range targetTrains {
-			if !strings.Contains(train.TripNumber, targetTrain) {
-				continue
-			}
-			for _, seat := range train.SeatTypes {
-				for _, targetType := range targetSeatTypes {
+	// Iterate by priority: first check highest priority seat type across all matching trains
+	for _, targetType := range targetSeatTypes {
+		for _, train := range trains.Data.Trains {
+			for _, targetTrain := range targetTrains {
+				if !strings.Contains(train.TripNumber, targetTrain) {
+					continue
+				}
+				for _, seat := range train.SeatTypes {
 					if seat.Type == targetType && seat.SeatCounts.Online >= int(minSeats) {
 						return train.TripNumber, seat.Type, seat.SeatCounts.Online
 					}
