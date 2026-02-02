@@ -213,6 +213,9 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	// Step 2: Search loop using direct API
 	for {
 		log.Printf("Search attempt %d...", attemptNo+1)
+		log.Println("Search Url: " + createAltUrl(originalUrl, searchAltUrl, attemptNo, originalUrl, altUrl))
+
+		// Decide which FROM to use
 
 		currentFrom := arguments.FROM
 		if searchAltUrl && attemptNo%2 == 1 {
@@ -484,7 +487,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    			// Poll for bogie dropdown (50ms intervals, max 3s)
    			const bogieSelection = await poll(() => {
    				const el = document.getElementById("select-bogie");
-   				return (el && el.options.length > 1) ? el : null;
+   				return (el && el.options.length >= 1) ? el : null;
    			}, 3000);
 
    			if (!bogieSelection) throw new Error("Bogie dropdown not found");
@@ -520,7 +523,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    			if (!seats) throw new Error("No seats found");
    			console.log("Found " + seats.length + " seats");
 
-   			// Click seats - first seat fast, 1 second delay before consecutive seats
+   			// Click seats - first seat fast, 300 mili second delay before consecutive seats
    			const seatCount = parseInt("` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `");
    			const goTowards = "` + arguments.SEAT_FACE + `".includes("Towards");
    			let current = goTowards ? 1 : 100;
@@ -531,9 +534,9 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    				const sel = '.btn-seat.seat-available[title="' + coachName + '-' + current + '"]';
    				const btn = document.querySelector(sel);
    				if (btn) {
-   					// Wait 1 second before clicking 2nd, 3rd, 4th... seats (not first)
+   					// Wait 300 mili second before clicking 2nd, 3rd, 4th... seats (not first)
    					if (selected > 0) {
-   						await new Promise(r => setTimeout(r, 1000));
+   						await new Promise(r => setTimeout(r, 300));
    					}
    					btn.click();
    					selected++;
