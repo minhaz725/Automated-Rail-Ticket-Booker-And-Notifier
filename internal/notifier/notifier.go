@@ -36,7 +36,7 @@ func SendEmail(messageBody string) bool {
 	return true
 }
 
-func MakeCall() bool {
+func MakeCall(number string) bool {
 	apiURL := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Calls.json", constants.TWILIO_ACCOUNT_SID)
 
 	twiml := `<Response>
@@ -51,7 +51,12 @@ func MakeCall() bool {
 
 	data := url.Values{}
 	data.Set("To", constants.TWILIO_TO_NUMBER)
-	data.Set("From", constants.TWILIO_FROM_NUMBER)
+	if number == "" {
+		data.Set("From", constants.TWILIO_FROM_NUMBER)
+	} else {
+		data.Set("From", number)
+	}
+
 	data.Set("Twiml", twiml)
 
 	req, err := http.NewRequest("POST", apiURL, strings.NewReader(data.Encode()))

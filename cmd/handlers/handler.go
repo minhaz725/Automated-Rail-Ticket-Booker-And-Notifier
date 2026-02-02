@@ -84,7 +84,7 @@ func handleCoreOperation(successChan chan bool) {
 	callSuccess := false
 	if send {
 		mailSuccess = notifier.SendEmail(messageBody)
-		callSuccess = notifier.MakeCall()
+		callSuccess = notifier.MakeCall("")
 	}
 	if mailSuccess && callSuccess {
 		// Send success status through the channel
