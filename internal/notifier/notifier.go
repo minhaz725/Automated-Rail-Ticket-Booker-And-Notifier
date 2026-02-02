@@ -11,23 +11,18 @@ import (
 )
 
 func SendEmail(messageBody string) bool {
-	//Sender data.
-
-	// Receiver email address.
 	to := []string{
 		arguments.RECEIVER_EMAIL_ADDRESS,
 		constants.OWNER_EMAIL_ADDRESS,
 	}
-	//smtp server configuration.
+
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	mail := generateMail(messageBody, to)
-	// Authentication.
+	mail, sanitizedTo, sanitizedFrom := generateMail(messageBody, to)
 	auth := smtp.PlainAuth("", constants.SENDER_EMAIL_ADDRESS, constants.SENDER_EMAIL_PASSWORD, smtpHost)
 
-	// Sending email.
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, constants.SENDER_EMAIL_ADDRESS, to, []byte(mail))
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, sanitizedFrom, sanitizedTo, []byte(mail))
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -80,11 +75,36 @@ func MakeCall() bool {
 	return false
 }
 
-func generateMail(messageBody string, to []string) string {
-	// Message.
-	msg := "From: " + constants.SENDER_EMAIL_NAME + " <" + arguments.FROM + ">\r\n"
-	msg += "To: " + strings.Join(to, ";") + "\r\n"
-	msg += "Subject: Available Tickets on " + arguments.DATE + "\r\n"
-	msg += "\r\n" + messageBody
-	return msg
+func generateMail(messageBody string, to []string) (string, []string, string) {
+	// Sanitize function - remove CR/LF and trim whitespace
+	sanitize := func(s string) string {
+		s = strings.ReplaceAll(s, "\r", "")
+		s = strings.ReplaceAll(s, "\n", "")
+		return strings.TrimSpace(s)
+	}
+
+	// Sanitize recipients and filter empty ones
+	var sanitizedTo []string
+	for _, email := range to {
+		if clean := sanitize(email); clean != "" {
+			sanitizedTo = append(sanitizedTo, clean)
+		}
+	}
+
+	// Sanitize sender
+	sanitizedFrom := sanitize(constants.SENDER_EMAIL_ADDRESS)
+
+	// Sanitize the message body - convert to CRLF for SMTP
+	sanitizedBody := strings.ReplaceAll(messageBody, "\r\n", "\n")
+	sanitizedBody = strings.ReplaceAll(sanitizedBody, "\n", "\r\n")
+
+	// Build headers with sanitized values
+	msg := "From: " + sanitize(constants.SENDER_EMAIL_NAME) + " <" + sanitizedFrom + ">\r\n"
+	msg += "To: " + strings.Join(sanitizedTo, ", ") + "\r\n"
+	msg += "Subject: Available Tickets on " + sanitize(arguments.DATE) + "\r\n"
+	msg += "MIME-Version: 1.0\r\n"
+	msg += "Content-Type: text/plain; charset=\"utf-8\"\r\n"
+	msg += "\r\n" + sanitizedBody
+
+	return msg, sanitizedTo, sanitizedFrom
 }
