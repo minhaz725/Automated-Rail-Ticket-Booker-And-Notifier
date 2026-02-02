@@ -304,13 +304,18 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 		chromedp.Evaluate(fmt.Sprintf(`window.location.href = "%s"`, searchUrl), nil),
 	)
 
-	// Wait for page to load
+	// Wait for page to load with faster polling (200ms intervals)
 	log.Println("Waiting for page to load...")
-	time.Sleep(15 * time.Second)
-
-	// Check if results loaded
 	var hasResults bool
-	chromedp.Run(bookingCtx, chromedp.Evaluate(`document.querySelectorAll('.single-trip-wrapper').length > 0`, &hasResults))
+	maxWaitMs := 10000 // 10 seconds max
+	for elapsed := 0; elapsed < maxWaitMs; elapsed += 200 {
+		time.Sleep(200 * time.Millisecond)
+		chromedp.Run(bookingCtx, chromedp.Evaluate(`document.querySelectorAll('.single-trip-wrapper').length > 0`, &hasResults))
+		if hasResults {
+			log.Printf("Page loaded after %dms", elapsed+200)
+			break
+		}
+	}
 
 	if !hasResults {
 		log.Println("Page didn't load. Manual booking required.")
@@ -325,14 +330,23 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	jsCode := buildSeatHoldingJS(trainName, seatClass, 1)
 	chromedp.Run(bookingCtx, chromedp.Evaluate(jsCode, nil))
 
-	time.Sleep(15 * time.Second)
-
+	// Poll for seat selection completion with faster polling (200ms intervals)
+	// Increase max wait to 15 seconds since JS needs time for coach selection + seat loading
 	var seatDetails struct {
 		Coach     string   `json:"coach"`
 		SeatClass string   `json:"seatClass"`
 		Seats     []string `json:"seats"`
 	}
-	chromedp.Run(bookingCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: '', seatClass: '', seats: []}`, &seatDetails))
+
+	maxSeatWaitMs := 15000 // 15 seconds max for seat selection
+	for elapsed := 0; elapsed < maxSeatWaitMs; elapsed += 200 {
+		time.Sleep(200 * time.Millisecond)
+		chromedp.Run(bookingCtx, chromedp.Evaluate(`window.selectedSeatDetails || {coach: '', seatClass: '', seats: []}`, &seatDetails))
+		if len(seatDetails.Seats) >= int(arguments.SEAT_COUNT) {
+			log.Printf("Seats selected after %dms", elapsed+200)
+			break
+		}
+	}
 
 	if len(seatDetails.Seats) < int(arguments.SEAT_COUNT) {
 		log.Printf("Only %d seats selected, need %d", len(seatDetails.Seats), arguments.SEAT_COUNT)
@@ -394,253 +408,160 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    	let holdInterval;
    	let isHolding = false;
 
-   	// Function to find and track selected seats
    	function trackSelectedSeats() {
-   		console.log("Tracking selected seats...");
    		const selectedSeatElements = document.querySelectorAll('.btn-seat.seat-selected, [class*="seat"][class*="selected"]');
    		heldSeats = [];
-   		
    		selectedSeatElements.forEach(seat => {
    			const seatId = seat.getAttribute('title') || seat.getAttribute('data-seat') || seat.textContent;
    			if (seatId) {
-   				heldSeats.push({
-   					element: seat,
-   					id: seatId,
-   					selector: generateSelectorForSeat(seat)
-   				});
+   				heldSeats.push({ id: seatId, selector: '[title="' + seatId + '"]' });
    			}
    		});
-   		
    		console.log("Tracked seats:", heldSeats.map(s => s.id));
    		return heldSeats.length > 0;
    	}
 
-   	function generateSelectorForSeat(seatElement) {
-   		const title = seatElement.getAttribute('title');
-   		const className = seatElement.className;
-   		
-   		if (title) {
-   			return '[title="' + title + '"]';
-   		} else if (className) {
-   			return '.' + className.split(' ').join('.');
-   		} else {
-   			return null;
-   		}
-   	}
-
    	function toggleSeats(hold = true) {
-   		let successCount = 0;
-   		console.log((hold ? "Holding" : "Unholding") + " seats...");
-   		
    		heldSeats.forEach(seatInfo => {
    			try {
-   				let seatElement = document.querySelector(seatInfo.selector);
-   				
-   				if (seatElement && !seatElement.disabled) {
-   					seatElement.click();
-   					successCount++;
-   					console.log((hold ? 'Held' : 'Unheld') + ' seat: ' + seatInfo.id);
-   				} else {
-   					console.warn('Seat not found or disabled: ' + seatInfo.id);
-   				}
-   			} catch (e) {
-   				console.error('Error toggling seat ' + seatInfo.id + ':', e);
-   			}
+   				let el = document.querySelector(seatInfo.selector);
+   				if (el && !el.disabled) el.click();
+   			} catch (e) {}
    		});
-   		
-   		console.log("Successfully toggled " + successCount + " seats");
-   		return successCount;
    	}
 
    	function startHoldCycle() {
-   		if (isHolding) {
-   			console.log("Holding cycle already active");
-   			return;
-   		}
-   		
+   		if (isHolding) return;
    		isHolding = true;
-   		console.log('Starting seat hold cycle. Hold duration: ' + ` + fmt.Sprintf("%d", holdDurationMinutes) + ` + ' minutes');
-   		
    		const cycleInterval = ` + fmt.Sprintf("%d", holdDurationMinutes) + ` * 60 * 1000;
-   		
    		holdInterval = setInterval(() => {
-   			console.log("=== SEAT CYCLE START ===");
    			toggleSeats(false);
-   			
-   			setTimeout(() => {
-   				toggleSeats(true);
-   				console.log("=== SEAT CYCLE COMPLETE ===");
-   			}, 1000);
-   			
+   			setTimeout(() => toggleSeats(true), 1000);
    		}, cycleInterval);
-   		
    		window.stopSeatHolding = () => {
-   			console.log("Stopping seat holding...");
-   			if (holdInterval) {
-   				clearInterval(holdInterval);
-   			}
+   			if (holdInterval) clearInterval(holdInterval);
    			isHolding = false;
    			toggleSeats(false);
-   			console.log("All seats released.");
    		};
-   		
-   		console.log("Seat holding started. Call window.stopSeatHolding() to stop.");
+   		console.log("Seat holding started.");
    	}
 
-   	try {
-   		console.log("Looking for train:", "` + trainName + `");
-   		const headers = Array.from(document.querySelectorAll("h2"));
-   		const header = headers.find((h) => h.innerText.includes("` + trainName + `"));
-   		
-   		if (!header) throw new Error("Header not found");
-   		console.log("Found train header");
-   		
-   		const appSingleTrip = header.closest("app-single-trip");
-   		if (!appSingleTrip) throw new Error("Parent component not found");
-
-   		const seatClassDivs = Array.from(appSingleTrip.querySelectorAll(".single-seat-class"));
-   		let seatDiv = seatClassDivs.find((div) => {
-   			let seatNameSpan = div.querySelector(".seat-class-name");
-   			return seatNameSpan && seatNameSpan.innerText.trim() === "` + selectedClass + `";
+   	// Fast polling - checks every 50ms, exits immediately when found
+   	function poll(checkFn, maxMs = 3000) {
+   		return new Promise((resolve) => {
+   			const start = Date.now();
+   			const check = () => {
+   				const result = checkFn();
+   				if (result) { resolve(result); return; }
+   				if (Date.now() - start > maxMs) { resolve(null); return; }
+   				setTimeout(check, 50);
+   			};
+   			check();
    		});
+   	}
 
-   		if (!seatDiv) throw new Error("Seat class div not found for: " + "` + selectedClass + `");
+   	async function run() {
+   		try {
+   			console.log("Looking for train:", "` + trainName + `");
+   			const header = Array.from(document.querySelectorAll("h2")).find(h => h.innerText.includes("` + trainName + `"));
+   			if (!header) throw new Error("Header not found");
 
-   		const bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
-   		if (!bookNowBtn) throw new Error("Book now button not found");
+   			const appSingleTrip = header.closest("app-single-trip");
+   			if (!appSingleTrip) throw new Error("Parent not found");
 
-   		console.log("Clicking book now button...");
-   		bookNowBtn.click();
+   			const seatDiv = Array.from(appSingleTrip.querySelectorAll(".single-seat-class")).find(div => {
+   				const span = div.querySelector(".seat-class-name");
+   				return span && span.innerText.trim() === "` + selectedClass + `";
+   			});
+   			if (!seatDiv) throw new Error("Seat class not found");
 
-   		const waitForInterface = new Promise((resolve) => {
-   			setTimeout(() => {
-   				const bogieSelection = document.getElementById("select-bogie");
-   				if (bogieSelection) {
-   					const extractNumber = (text) => {
-   						const match = text.match(/ - (\d+) Seat\(s\)/);
-   						return match ? parseInt(match[1]) : 0;
-   					};
+   			const bookNowBtn = seatDiv.querySelector(".book-now-btn-wrapper .book-now-btn");
+   			if (!bookNowBtn) throw new Error("Book button not found");
 
-   					const options = Array.from(bogieSelection.options);
-   					const highestOption = options.reduce((highest, current) => {
-   						const highestNumber = extractNumber(highest.text);
-   						const currentNumber = extractNumber(current.text);
-   						return currentNumber > highestNumber ? current : highest;
-   					}, options[0]);
+   			console.log("Clicking book now...");
+   			bookNowBtn.click();
 
-   					const coachWithHighestSeat = highestOption.text.split(" - ")[0];
-   					console.log("Selected coach:", coachWithHighestSeat);
-   					
-   					const coachOption = Array.from(bogieSelection.options).find((option) =>
-   						option.text.includes(coachWithHighestSeat)
-   					);
+   			// Poll for bogie dropdown (50ms intervals, max 3s)
+   			const bogieSelection = await poll(() => {
+   				const el = document.getElementById("select-bogie");
+   				return (el && el.options.length > 1) ? el : null;
+   			}, 3000);
 
-   					bogieSelection.value = coachOption.value;
-   					bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
+   			if (!bogieSelection) throw new Error("Bogie dropdown not found");
 
-   					if (coachWithHighestSeat && coachWithHighestSeat.startsWith("XTR")) {
-   						setTimeout(() => {
-   							const okBtn = Array.from(document.querySelectorAll("button, input[type='button']"))
-   								.find(el => el.textContent.trim().toUpperCase() === "OKAY");
-   							if (okBtn) okBtn.click();
-   						}, 400);
-   					}
+   			const extractNum = (text) => {
+   				const m = text.match(/ - (\d+) Seat\(s\)/);
+   				return m ? parseInt(m[1]) : 0;
+   			};
 
-   					setTimeout(() => {
-   						const availableSeats = document.querySelectorAll('.btn-seat.seat-available');
-   						if (!availableSeats || availableSeats.length === 0) {
-   							window.seatSelectionFailed = true;
-   							resolve(false);
-   							return;
-   						}
-   						resolve(coachWithHighestSeat);
-   					}, 500);
-   				} else {
-   					resolve(null);
-   				}
-   			}, 500);
-   		});
+   			const options = Array.from(bogieSelection.options);
+   			const best = options.reduce((a, b) => extractNum(b.text) > extractNum(a.text) ? b : a, options[0]);
+   			const coachName = best.text.split(" - ")[0];
+   			console.log("Selected coach:", coachName);
 
-   		waitForInterface.then((coachWithHighestSeat) => {
-   			if (coachWithHighestSeat === false || window.seatSelectionFailed) {
-   				console.error("Seat selection failed.");
-   				return false;
+   			bogieSelection.value = best.value;
+   			bogieSelection.dispatchEvent(new Event("change", { bubbles: true }));
+
+   			// Handle XTR popup immediately if needed
+   			if (coachName.startsWith("XTR")) {
+   				await poll(() => {
+   					const btn = Array.from(document.querySelectorAll("button")).find(el => el.textContent.trim().toUpperCase() === "OKAY");
+   					if (btn) { btn.click(); return true; }
+   					return null;
+   				}, 1000);
    			}
-   			
-   			setTimeout(() => {
-   				console.log("Starting seat selection with delays...");
-   				
-   				// FIXED: Click seats with delay between each click
-   				const seatCount = parseInt("` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `");
-   				const goTowards = "` + arguments.SEAT_FACE + `".includes("Towards");
-   				let startSeat = goTowards ? 1 : 100;
-   				let increment = goTowards ? 1 : -1;
-   				let selected = 0;
-   				let currentSeat = startSeat;
-   				
-   				const clickNextSeat = () => {
-   					if (selected >= seatCount) {
-   						console.log("All " + selected + " seats selected!");
-   						finishSelection();
-   						return;
-   					}
-   					
-   					if (currentSeat < 1 || currentSeat > 100) {
-   						console.log("Ran out of seat numbers. Selected: " + selected);
-   						finishSelection();
-   						return;
-   					}
-   					
-   					// Build selector
-   					let selector;
-   					if (coachWithHighestSeat) {
-   						selector = '.btn-seat.seat-available[title="' + coachWithHighestSeat + '-' + currentSeat + '"]';
-   					} else {
-   						selector = '.btn-seat.seat-available[title$="-' + currentSeat + '"]';
-   					}
-   					
-   					const seatButton = document.querySelector(selector);
-   					if (seatButton) {
-   						seatButton.click();
-   						selected++;
-   						console.log("Clicked seat " + currentSeat + " (" + selected + "/" + seatCount + ")");
-   					}
-   					
-   					currentSeat += increment;
-   					
-   					// Wait 400ms before clicking next seat
-   					setTimeout(clickNextSeat, 400);
-   				};
-   				
-   				const finishSelection = () => {
-   					setTimeout(() => {
-   						console.log("Tracking seats for holding...");
-   						if (trackSelectedSeats()) {
-   							window.selectedSeatDetails = {
-   								coach: coachWithHighestSeat || 'Unknown',
-   								seatClass: '` + selectedClass + `',
-   								seats: heldSeats.map(s => s.id)
-   							};
-   							console.log("Selected seats:", window.selectedSeatDetails.seats);
-   							startHoldCycle();
-   						} else {
-   							console.error("No seats tracked!");
-   						}
-   					}, 1000);
-   				};
-   				
-   				// Start clicking
-   				clickNextSeat();
-   				
-   			}, 500);
-   		});
 
-   		return true;
-   		
-   	} catch (error) {
-   		console.error("Seat holding setup error:", error);
-   		return false;
+   			// Poll for seats to appear (50ms intervals, max 2s since they load fast)
+   			const seats = await poll(() => {
+   				const s = document.querySelectorAll('.btn-seat.seat-available');
+   				return s.length > 0 ? s : null;
+   			}, 2000);
+
+   			if (!seats) throw new Error("No seats found");
+   			console.log("Found " + seats.length + " seats");
+
+   			// Click seats - first seat fast, 1 second delay before consecutive seats
+   			const seatCount = parseInt("` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `");
+   			const goTowards = "` + arguments.SEAT_FACE + `".includes("Towards");
+   			let current = goTowards ? 1 : 100;
+   			const inc = goTowards ? 1 : -1;
+   			let selected = 0;
+
+   			for (let i = 0; i < 100 && selected < seatCount; i++) {
+   				const sel = '.btn-seat.seat-available[title="' + coachName + '-' + current + '"]';
+   				const btn = document.querySelector(sel);
+   				if (btn) {
+   					// Wait 1 second before clicking 2nd, 3rd, 4th... seats (not first)
+   					if (selected > 0) {
+   						await new Promise(r => setTimeout(r, 1000));
+   					}
+   					btn.click();
+   					selected++;
+   					console.log("Clicked seat " + current + " (" + selected + "/" + seatCount + ")");
+   				}
+   				current += inc;
+   			}
+
+   			console.log("Selected " + selected + " seats");
+
+   			// Immediately track and set result
+   			if (trackSelectedSeats()) {
+   				window.selectedSeatDetails = {
+   					coach: coachName,
+   					seatClass: '` + selectedClass + `',
+   					seats: heldSeats.map(s => s.id)
+   				};
+   				console.log("Done! Seats:", window.selectedSeatDetails.seats);
+   				startHoldCycle();
+   			}
+
+   		} catch (error) {
+   			console.error("Error:", error);
+   		}
    	}
+
+   	run();
+   	return true;
    })();`
 }
 
