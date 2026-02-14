@@ -284,8 +284,10 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	log.Println("SEATS FOUND!")
 
 	*messageBody += fmt.Sprintf("\nURL: %s\n", searchUrl)
-	notifier.SendEmail(*messageBody)
-	notifier.MakeCall()
+
+	// Run notifications in background goroutines to not block booking
+	go notifier.SendEmail(*messageBody)
+	go notifier.MakeCall()
 
 	log.Println("Opening NEW TAB in debug Chrome...")
 
