@@ -59,7 +59,7 @@ func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
 	ctx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 250*time.Second)
 	defer cancel()
 
 	auth := &CapturedAuth{}
@@ -335,7 +335,7 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	log.Println("PAGE LOADED! Running seat selection JS...")
 
 	// Execute seat holding JS
-	jsCode := buildSeatHoldingJS(trainName, seatClass, 3)
+	jsCode := buildSeatHoldingJS(trainName, seatClass, 15)
 	chromedp.Run(bookingCtx, chromedp.Evaluate(jsCode, nil))
 
 	// Poll for seat selection completion with faster polling (200ms intervals)
@@ -409,12 +409,12 @@ func getRandomDelay() time.Duration {
 	return time.Duration(delay) * time.Second
 }
 
-func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int) string {
+func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int) string {
 	return `(() => {
    	console.log("Starting seat holding process...");
    	let heldSeats = [];
-   	let holdInterval;
    	let isHolding = false;
+   	let stopRequested = false;
 
    	function trackSelectedSeats() {
    		const selectedSeatElements = document.querySelectorAll('.btn-seat.seat-selected, [class*="seat"][class*="selected"]');
@@ -429,29 +429,77 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    		return heldSeats.length > 0;
    	}
 
-   	function toggleSeats(hold = true) {
-   		heldSeats.forEach(seatInfo => {
+   	function sleep(ms) {
+   		return new Promise(resolve => setTimeout(resolve, ms));
+   	}
+
+   	async function toggleSeats(hold) {
+   		console.log((hold ? "Re-selecting" : "Unselecting") + " " + heldSeats.length + " seats...");
+   		for (let i = 0; i < heldSeats.length; i++) {
+   			if (stopRequested) return;
    			try {
-   				let el = document.querySelector(seatInfo.selector);
-   				if (el && !el.disabled) el.click();
-   			} catch (e) {}
-   		});
+   				let el = document.querySelector(heldSeats[i].selector);
+   				if (el && !el.disabled) {
+   					el.click();
+   					console.log((hold ? "Re-selected" : "Unselected") + " seat " + (i+1) + "/" + heldSeats.length + ":", heldSeats[i].id);
+   				} else {
+   					console.log("Seat not found or disabled:", heldSeats[i].id);
+   				}
+   			} catch (e) {
+   				console.error("Error toggling seat:", heldSeats[i].id, e);
+   			}
+   			// Always wait between seats (except after last one)
+   			if (i < heldSeats.length - 1) {
+   				await sleep(300);
+   			}
+   		}
+   		console.log((hold ? "Re-selection" : "Unselection") + " complete");
+   	}
+
+   	async function holdCycle() {
+   		if (stopRequested) return;
+   		
+   		console.log("--- Hold cycle starting ---");
+   		
+   		// Unselect all seats
+   		await toggleSeats(false);
+   		
+   		if (stopRequested) return;
+   		
+   		// Wait 2.5 seconds
+   		console.log("Waiting 2.5s before re-selecting...");
+   		await sleep(1500);
+   		
+   		if (stopRequested) return;
+   		
+   		// Re-select all seats
+   		await toggleSeats(true);
+   		
+   		console.log("--- Hold cycle complete ---");
+   		
+   		// Schedule next cycle
+   		if (!stopRequested) {
+   			const cycleInterval = ` + fmt.Sprintf("%d", holdDurationSeconds) + ` * 1000;
+   			console.log("Next cycle in " + (cycleInterval/1000) + " seconds");
+   			setTimeout(holdCycle, cycleInterval);
+   		}
    	}
 
    	function startHoldCycle() {
    		if (isHolding) return;
    		isHolding = true;
-   		const cycleInterval = ` + fmt.Sprintf("%d", holdDurationMinutes) + ` * 60 * 1000;
-   		holdInterval = setInterval(() => {
-   			toggleSeats(false);
-   			setTimeout(() => toggleSeats(true), 1000);
-   		}, cycleInterval);
-   		window.stopSeatHolding = () => {
-   			if (holdInterval) clearInterval(holdInterval);
+   		stopRequested = false;
+   		const cycleInterval = ` + fmt.Sprintf("%d", holdDurationSeconds) + ` * 1000;
+   		console.log("Seat holding started. First cycle in " + (cycleInterval/1000) + " seconds");
+   		// Start first cycle after the interval
+   		setTimeout(holdCycle, cycleInterval);
+   		
+   		window.stopSeatHolding = async () => {
+   			console.log("Stopping seat holding...");
+   			stopRequested = true;
    			isHolding = false;
-   			toggleSeats(false);
+   			await toggleSeats(false);
    		};
-   		console.log("Seat holding started.");
    	}
 
    	// Fast polling - checks every 50ms, exits immediately when found
@@ -528,7 +576,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    			if (!seats) throw new Error("No seats found");
    			console.log("Found " + seats.length + " seats");
 
-   			// Click seats - first seat fast, 300 mili second delay before consecutive seats
+   			// Click seats - first seat fast, 300ms delay before consecutive seats
    			const seatCount = parseInt("` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `");
    			const goTowards = "` + arguments.SEAT_FACE + `".includes("Towards");
    			let current = goTowards ? 1 : 100;
@@ -539,7 +587,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    				const sel = '.btn-seat.seat-available[title="' + coachName + '-' + current + '"]';
    				const btn = document.querySelector(sel);
    				if (btn) {
-   					// Wait 300 mili second before clicking 2nd, 3rd, 4th... seats (not first)
+   					// Wait 300ms before clicking 2nd, 3rd, 4th... seats (not first)
    					if (selected > 0) {
    						await new Promise(r => setTimeout(r, 300));
    					}
@@ -552,7 +600,10 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
 
    			console.log("Selected " + selected + " seats");
 
-   			// Immediately track and set result
+   			// Wait a bit for UI to update, then track
+   			await new Promise(r => setTimeout(r, 500));
+
+   			// Track and set result
    			if (trackSelectedSeats()) {
    				window.selectedSeatDetails = {
    					coach: coachName,
@@ -561,6 +612,8 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationMinutes int
    				};
    				console.log("Done! Seats:", window.selectedSeatDetails.seats);
    				startHoldCycle();
+   			} else {
+   				console.error("Failed to track selected seats!");
    			}
 
    		} catch (error) {
