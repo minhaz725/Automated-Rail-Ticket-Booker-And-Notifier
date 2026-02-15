@@ -59,7 +59,7 @@ func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
 	ctx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 250*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	auth := &CapturedAuth{}
@@ -335,7 +335,7 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	log.Println("PAGE LOADED! Running seat selection JS...")
 
 	// Execute seat holding JS
-	jsCode := buildSeatHoldingJS(trainName, seatClass, 15)
+	jsCode := buildSeatHoldingJS(trainName, seatClass, 250)
 	chromedp.Run(bookingCtx, chromedp.Evaluate(jsCode, nil))
 
 	// Poll for seat selection completion with faster polling (200ms intervals)
