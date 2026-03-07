@@ -92,11 +92,11 @@ func validateAuth(auth *models.CapturedAuth) bool {
 func GetOrCaptureAuth(searchUrl string) (*models.CapturedAuth, error) {
 	if cached := loadAuthFromFile(); cached != nil {
 		log.Println("Found cached auth, validating...")
-		//if validateAuth(cached) {
-		//	log.Println("Cached auth is valid!")
+		if validateAuth(cached) {
+			log.Println("Cached auth is valid!")
 		return cached, nil
-		//}
-		//log.Println("Cached auth expired, recapturing from browser...")
+		}
+		log.Println("Cached auth expired, recapturing from browser...")
 	}
 
 	auth, err := CaptureAuthFromBrowser(searchUrl)
@@ -108,7 +108,7 @@ func GetOrCaptureAuth(searchUrl string) (*models.CapturedAuth, error) {
 }
 
 func CaptureAuthFromBrowser(searchUrl string) (*models.CapturedAuth, error) {
-	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://127.0.0.1:9222")
+	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
 	defer cancel()
 
 	ctx, cancel := chromedp.NewContext(allocCtx)
