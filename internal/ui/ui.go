@@ -31,7 +31,8 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	label.Alignment = fyne.TextAlignLeading // Set text alignment to left
 	customDialog := dialog.NewCustom("Welcome", "I've Read, Continue", container.NewVBox(label), window)
 	customDialog.SetOnClosed(setChromeAfterIntroContinuePressed(window))
-	customDialog.Show()
+	// POPUP
+	//customDialog.Show()
 
 	// Create form fields with default values
 	fromEntry := widget.NewEntry()

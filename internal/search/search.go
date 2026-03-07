@@ -2,6 +2,7 @@ package search
 
 import (
 	"Rail-Ticket-Notifier/internal/arguments"
+	"Rail-Ticket-Notifier/internal/models"
 	"Rail-Ticket-Notifier/internal/notifier"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -23,36 +25,89 @@ import (
 	"time"
 )
 
-type CapturedAuth struct {
-	Authorization string
-	DeviceId      string
-	DeviceKey     string
-	UserAgent     string
+const authCacheDir = "Rail-Ticket-Notifier"
+const authCacheFileName = "auth_cache.json"
+
+func getAuthCachePath() (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(cacheDir, authCacheDir)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, authCacheFileName), nil
 }
 
-type TrainResponse struct {
-	Data struct {
-		Trains []Train `json:"trains"`
-	} `json:"data"`
+func saveAuthToFile(auth *models.CapturedAuth) {
+	path, err := getAuthCachePath()
+	if err != nil {
+		log.Printf("Failed to get cache path: %v", err)
+		return
+	}
+	data, err := json.MarshalIndent(auth, "", "  ")
+	if err != nil {
+		log.Printf("Failed to marshal auth: %v", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		log.Printf("Failed to save auth cache: %v", err)
+		return
+	}
+	log.Printf("Auth saved to cache: %s", path)
 }
 
-type Train struct {
-	TripNumber    string     `json:"trip_number"`
-	DepartureTime string     `json:"departure_date_time"`
-	ArrivalTime   string     `json:"arrival_date_time"`
-	SeatTypes     []SeatType `json:"seat_types"`
+func loadAuthFromFile() *models.CapturedAuth {
+	path, err := getAuthCachePath()
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var auth models.CapturedAuth
+	if err := json.Unmarshal(data, &auth); err != nil {
+		log.Printf("Failed to parse auth cache: %v", err)
+		return nil
+	}
+	if auth.Authorization == "" {
+		return nil
+	}
+	return &auth
 }
 
-type SeatType struct {
-	Type       string `json:"type"`
-	Fare       string `json:"fare"`
-	SeatCounts struct {
-		Online  int `json:"online"`
-		Offline int `json:"offline"`
-	} `json:"seat_counts"`
+func validateAuth(auth *models.CapturedAuth) bool {
+	_, err := SearchTrainsAPI(auth, "Dhaka", "Chattogram", arguments.DATE, "S_CHAIR")
+	if err != nil {
+		log.Printf("Cached auth validation failed: %v", err)
+		return false
+	}
+	return true
 }
 
-func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
+// GetOrCaptureAuth tries to load cached auth from file first, validates it,
+// and falls back to browser capture if cache is missing or expired.
+func GetOrCaptureAuth(searchUrl string) (*models.CapturedAuth, error) {
+	if cached := loadAuthFromFile(); cached != nil {
+		log.Println("Found cached auth, validating...")
+		//if validateAuth(cached) {
+		//	log.Println("Cached auth is valid!")
+		return cached, nil
+		//}
+		//log.Println("Cached auth expired, recapturing from browser...")
+	}
+
+	auth, err := CaptureAuthFromBrowser(searchUrl)
+	if err != nil {
+		return nil, err
+	}
+	saveAuthToFile(auth)
+	return auth, nil
+}
+
+func CaptureAuthFromBrowser(searchUrl string) (*models.CapturedAuth, error) {
 	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://127.0.0.1:9222")
 	defer cancel()
 
@@ -62,7 +117,7 @@ func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	auth := &CapturedAuth{}
+	auth := &models.CapturedAuth{}
 
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
 		if e, ok := ev.(*network.EventRequestWillBeSent); ok {
@@ -109,7 +164,7 @@ func CaptureAuthFromBrowser(searchUrl string) (*CapturedAuth, error) {
 }
 
 // SearchTrainsAPI calls the API directly
-func SearchTrainsAPI(auth *CapturedAuth, from, to, date, seatClass string) (*TrainResponse, error) {
+func SearchTrainsAPI(auth *models.CapturedAuth, from, to, date, seatClass string) (*models.TrainResponse, error) {
 	url := fmt.Sprintf(
 		"https://railspaapi.shohoz.com/v1.0/web/bookings/search-trips-v2?from_city=%s&to_city=%s&date_of_journey=%s&seat_class=%s",
 		from, to, date, seatClass,
@@ -137,7 +192,7 @@ func SearchTrainsAPI(auth *CapturedAuth, from, to, date, seatClass string) (*Tra
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
 
-	var result TrainResponse
+	var result models.TrainResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
@@ -146,7 +201,7 @@ func SearchTrainsAPI(auth *CapturedAuth, from, to, date, seatClass string) (*Tra
 }
 
 // FindAvailableSeats checks for seats matching criteria, respecting both seat type AND train priority order
-func FindAvailableSeats(trains *TrainResponse, targetTrains []string, targetSeatTypes []string, minSeats uint) (string, string, int) {
+func FindAvailableSeats(trains *models.TrainResponse, targetTrains []string, targetSeatTypes []string, minSeats uint) (string, string, int) {
 	// Priority order: Train first, then Seat type
 	// So if you input trains: SUBORNO,SONAR and seats: S_CHAIR,SNIGDHA
 	// It will first try SUBORNO+S_CHAIR, then SUBORNO+SNIGDHA, then SONAR+S_CHAIR, then SONAR+SNIGDHA
@@ -195,11 +250,11 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		os.Exit(0)
 	}()
 
-	// Step 1: Capture auth from browser
-	log.Println("Capturing auth from browser...")
-	auth, err := CaptureAuthFromBrowser(originalUrl)
+	// Step 1: Try cached auth first, fall back to browser capture
+	log.Println("Getting auth credentials...")
+	auth, err := GetOrCaptureAuth(originalUrl)
 	if err != nil {
-		log.Fatal("Failed to capture auth:", err)
+		log.Fatal("Failed to get auth:", err)
 	}
 
 	// Generate alt URL if needed
@@ -235,6 +290,8 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 				auth, err = CaptureAuthFromBrowser(originalUrl)
 				if err != nil {
 					log.Printf("Failed to recapture auth: %v", err)
+				} else {
+					saveAuthToFile(auth)
 				}
 			}
 
@@ -315,7 +372,7 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	// Wait for page to load with faster polling (200ms intervals)
 	log.Println("Waiting for page to load...")
 	var hasResults bool
-	maxWaitMs := 10000 // 10 seconds max
+	maxWaitMs := 20000 // 20 seconds max
 	for elapsed := 0; elapsed < maxWaitMs; elapsed += 200 {
 		time.Sleep(200 * time.Millisecond)
 		chromedp.Run(bookingCtx, chromedp.Evaluate(`document.querySelectorAll('.single-trip-wrapper').length > 0`, &hasResults))

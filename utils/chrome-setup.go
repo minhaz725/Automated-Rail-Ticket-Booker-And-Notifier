@@ -24,7 +24,8 @@ func SetupChrome(window fyne.Window) bool {
 
 	label := widget.NewLabel(constants.CHROME_SETUP_MSG)
 	customDialog := dialog.NewCustom("Setting Up Chrome, Please Wait", "OK", container.NewVBox(label), window)
-	customDialog.Show()
+	// POPUP
+	//customDialog.Show()
 
 	chromePath := getChromePath()
 	if chromePath == "" {
@@ -105,7 +106,8 @@ func SetupChrome(window fyne.Window) bool {
 	paddedContent := container.NewPadded(loginContent)
 	paddedContent.Resize(fyne.NewSize(350, 150))
 	loginDialog = dialog.NewCustom("Login Verification", "Cancel", container.NewCenter(container.NewGridWrap(fyne.NewSize(350, 150), loginContent)), window)
-	loginDialog.Show()
+	// POPUP
+	//loginDialog.Show()
 
 	// Don't block here - return true and let the dialog handle verification
 	// The actual verification happens when user clicks Test Login
