@@ -3,11 +3,35 @@ package notifier
 import (
 	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
+	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"net/smtp"
 	"net/url"
 	"strings"
+	"time"
+)
+
+var (
+	resolver = &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{Timeout: 5 * time.Second}
+			return d.DialContext(ctx, "udp", "8.8.8.8:53")
+		},
+	}
+	dialer = &net.Dialer{
+		Timeout:  10 * time.Second,
+		Resolver: resolver,
+	}
+	httpClient = &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
+		},
+	}
 )
 
 func SendEmail(messageBody string) bool {
@@ -22,13 +46,54 @@ func SendEmail(messageBody string) bool {
 	mail, sanitizedTo, sanitizedFrom := generateMail(messageBody, to)
 	auth := smtp.PlainAuth("", constants.SENDER_EMAIL_ADDRESS, constants.SENDER_EMAIL_PASSWORD, smtpHost)
 
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, sanitizedFrom, sanitizedTo, []byte(mail))
+	err := sendMailWithCustomDNS(smtpHost, smtpPort, auth, sanitizedFrom, sanitizedTo, []byte(mail))
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
 	fmt.Println("Email Sent Successfully!")
 	return true
+}
+
+func sendMailWithCustomDNS(host, port string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	addr := host + ":" + port
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("dial error: %w", err)
+	}
+
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("smtp client error: %w", err)
+	}
+	defer c.Close()
+
+	if err = c.StartTLS(&tls.Config{ServerName: host}); err != nil {
+		return fmt.Errorf("starttls error: %w", err)
+	}
+	if err = c.Auth(auth); err != nil {
+		return fmt.Errorf("auth error: %w", err)
+	}
+	if err = c.Mail(from); err != nil {
+		return fmt.Errorf("mail from error: %w", err)
+	}
+	for _, addr := range to {
+		if err = c.Rcpt(addr); err != nil {
+			return fmt.Errorf("rcpt error: %w", err)
+		}
+	}
+	w, err := c.Data()
+	if err != nil {
+		return fmt.Errorf("data error: %w", err)
+	}
+	if _, err = w.Write(msg); err != nil {
+		return fmt.Errorf("write error: %w", err)
+	}
+	if err = w.Close(); err != nil {
+		return fmt.Errorf("close data error: %w", err)
+	}
+	return c.Quit()
 }
 
 func MakeCall() bool {
@@ -58,8 +123,7 @@ func MakeCall() bool {
 	req.SetBasicAuth(constants.TWILIO_ACCOUNT_SID, constants.TWILIO_AUTH_TOKEN)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		fmt.Println("Error making call:", err)
 		return false

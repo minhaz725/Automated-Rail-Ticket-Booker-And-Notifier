@@ -1,7 +1,6 @@
 package arguments
 
 import (
-	"Rail-Ticket-Notifier/utils/constants"
 	"flag"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ var (
 	RECEIVER_EMAIL_ADDRESS string
 	SEAT_FACE              string
 	GO_TO_BOOK_PAGE        uint
+	AUTH_FILE              string
 )
 
 func init() {
@@ -33,6 +33,7 @@ func init() {
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
 	flag.StringVar(&SEAT_FACE, "seatFace", "Travelling Towards Dhaka", "Seat Face")
 	flag.UintVar(&GO_TO_BOOK_PAGE, "purchasePage", 1, "Go to purchase page")
+	flag.StringVar(&AUTH_FILE, "auth", "auth.json", "Path to auth.json file")
 
 	flag.Func("seatTypes", "Seat types", func(s string) error {
 		SEAT_TYPE_ARRAY = strings.Split(s, ",")
@@ -47,39 +48,4 @@ func init() {
 	flag.Parse()
 }
 
-func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string, seatFace string) {
-	if from == "Chapai Nawabganj" {
-		FROM = "Chapai%20Nawabganj"
-	} else if from == "Cox's Bazar" {
-		FROM = "Cox%27s%20Bazar"
-	} else {
-		FROM = from
-	}
 
-	if to == "Chapai Nawabganj" {
-		TO = "Chapai%20Nawabganj"
-	} else if to == "Cox's Bazar" {
-		TO = "Cox%27s%20Bazar"
-	} else {
-		TO = to
-	}
-	DATE = date
-	RECEIVER_EMAIL_ADDRESS = email
-	SEAT_COUNT = seatCount
-	SEAT_TYPE_ARRAY = seatTypes
-	SPECIFIC_TRAIN_ARRAY = trains
-	if goToBookPage {
-		GO_TO_BOOK_PAGE = 1
-	} else {
-		GO_TO_BOOK_PAGE = 0
-	}
-	SEAT_FACE = seatFace
-}
-
-func GenerateURL() string {
-	return constants.BASE_URL + constants.FROM_KEY + FROM + constants.TO_KEY + TO + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
-}
-
-func GenerateAltURL() string {
-	return constants.BASE_URL + constants.FROM_KEY + "Biman_Bandar" + constants.TO_KEY + TO + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
-}
