@@ -18,6 +18,7 @@ var (
 	RECEIVER_EMAIL_ADDRESS string
 	SEAT_FACE              string
 	GO_TO_BOOK_PAGE        uint
+	INSTANCE_INDEX         int
 )
 
 func init() {
@@ -33,6 +34,7 @@ func init() {
 	flag.UintVar(&SEAT_COUNT, "seatCount", 2, "Seat count")
 	flag.StringVar(&SEAT_FACE, "seatFace", "Travelling Towards Dhaka", "Seat Face")
 	flag.UintVar(&GO_TO_BOOK_PAGE, "purchasePage", 1, "Go to purchase page")
+	flag.IntVar(&INSTANCE_INDEX, "instanceIndex", 1, "Chrome instance index (1-10)")
 
 	flag.Func("seatTypes", "Seat types", func(s string) error {
 		SEAT_TYPE_ARRAY = strings.Split(s, ",")
@@ -47,7 +49,7 @@ func init() {
 	flag.Parse()
 }
 
-func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string, seatFace string) {
+func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount uint, seatTypes, trains []string, seatFace string, instanceIndex int) {
 	if from == "Chapai Nawabganj" {
 		FROM = "Chapai%20Nawabganj"
 	} else if from == "Cox's Bazar" {
@@ -74,6 +76,7 @@ func UpdateArguments(from, to, date, email string, goToBookPage bool, seatCount 
 		GO_TO_BOOK_PAGE = 0
 	}
 	SEAT_FACE = seatFace
+	INSTANCE_INDEX = instanceIndex
 }
 
 func GenerateURL() string {

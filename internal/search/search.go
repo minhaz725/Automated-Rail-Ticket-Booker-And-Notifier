@@ -4,6 +4,7 @@ import (
 	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/internal/models"
 	"Rail-Ticket-Notifier/internal/notifier"
+	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
 	"encoding/json"
@@ -26,9 +27,13 @@ import (
 )
 
 const authCacheDir = "Rail-Ticket-Notifier"
-const authCacheFileName = "auth_cache.json"
 
 func getAuthCachePath() (string, error) {
+	index := arguments.INSTANCE_INDEX
+	if index < 1 || index > 10 {
+		index = 1
+	}
+	port := 9221 + index
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
@@ -37,7 +42,8 @@ func getAuthCachePath() (string, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, authCacheFileName), nil
+	fileName := fmt.Sprintf("auth-cache-%d-port-%d.json", index, port)
+	return filepath.Join(dir, fileName), nil
 }
 
 func saveAuthToFile(auth *models.CapturedAuth) {
@@ -94,7 +100,7 @@ func GetOrCaptureAuth(searchUrl string) (*models.CapturedAuth, error) {
 		log.Println("Found cached auth, validating...")
 		if validateAuth(cached) {
 			log.Println("Cached auth is valid!")
-		return cached, nil
+			return cached, nil
 		}
 		log.Println("Cached auth expired, recapturing from browser...")
 	}
@@ -108,7 +114,7 @@ func GetOrCaptureAuth(searchUrl string) (*models.CapturedAuth, error) {
 }
 
 func CaptureAuthFromBrowser(searchUrl string) (*models.CapturedAuth, error) {
-	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), utils.GetDebugChromeURL())
 	defer cancel()
 
 	ctx, cancel := chromedp.NewContext(allocCtx)
@@ -228,10 +234,16 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	_ = seatBookerFunction
 	rand.Seed(time.Now().UnixNano())
 
+	// Ensure Chrome is running (handles the case where SetupChrome was never
+	// called because the intro dialog is skipped / commented out).
+	if err := utils.EnsureChrome(); err != nil {
+		log.Fatalf("Failed to launch Chrome: %v", err)
+	}
+
 	messageBody := ""
 
 	// Setup browser context - KEEP THIS OPEN FOR THE ENTIRE SESSION
-	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), utils.GetDebugChromeURL())
 	browserCtx, cancelBrowser := chromedp.NewContext(allocCtx)
 
 	// Cleanup handler
@@ -276,8 +288,12 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		// Decide which FROM to use
 
 		currentFrom := arguments.FROM
+		//currentTo := arguments.TO
+		//currentDate := arguments.DATE
 		if searchAltUrl && attemptNo%2 == 1 {
-			currentFrom = "Biman Bandar"
+			currentFrom = "Biman_Bandar"
+			//currentTo = "Sylhet"
+			//currentDate = "28-Mar-2026"
 			_ = altUrl
 		}
 
@@ -349,7 +365,7 @@ func bookSeatsInExistingTab(ctx context.Context, trainName, seatClass, searchUrl
 	log.Println("Opening NEW TAB in debug Chrome...")
 
 	// Create new tab in debug Chrome via CDP
-	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), utils.GetDebugChromeURL())
 	bookingCtx, cancelBooking := chromedp.NewContext(allocCtx) // This creates a new tab
 
 	// Navigate via JS (not CDP navigate)
@@ -646,7 +662,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    				if (btn) {
    					// Wait 300ms before clicking 2nd, 3rd, 4th... seats (not first)
    					if (selected > 0) {
-   						await new Promise(r => setTimeout(r, 300));
+   						await new Promise(r => setTimeout(r, 400));
    					}
    					btn.click();
    					selected++;

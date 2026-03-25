@@ -66,6 +66,10 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	seatFaceEntry.Horizontal = true
 	seatFaceEntry.SetSelected(a.Preferences().StringWithFallback("seatFaceEntry", arguments.SEAT_FACE))
 
+	instanceOptions := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
+	instanceIndexEntry := widget.NewSelect(instanceOptions, func(value string) {})
+	instanceIndexEntry.SetSelected(a.Preferences().StringWithFallback("instanceIndexEntry", "1"))
+
 	content := container.NewVBox(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, emailEntry, phoneEntry)
 
 	scrollContainer := container.NewVScroll(content)
@@ -75,17 +79,18 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	window.SetContent(scrollContainer)
 
 	uiElements := models.ElementsOfUI{
-		App:            a,
-		Window:         window,
-		FromEntry:      fromEntry,
-		ToEntry:        toEntry,
-		DateEntry:      dateEntry,
-		SeatCountEntry: seatCountEntry,
-		SeatTypesEntry: seatTypesEntry,
-		TrainsEntry:    trainsEntry,
-		EmailEntry:     emailEntry,
-		PhoneEntry:     phoneEntry,
-		SeatFaceEntry:  seatFaceEntry,
+		App:                a,
+		Window:             window,
+		FromEntry:          fromEntry,
+		ToEntry:            toEntry,
+		DateEntry:          dateEntry,
+		SeatCountEntry:     seatCountEntry,
+		SeatTypesEntry:     seatTypesEntry,
+		TrainsEntry:        trainsEntry,
+		EmailEntry:         emailEntry,
+		PhoneEntry:         phoneEntry,
+		SeatFaceEntry:      seatFaceEntry,
+		InstanceIndexEntry: instanceIndexEntry,
 	}
 
 	return uiElements
@@ -109,6 +114,7 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 			{Text: "Email address (To receive mail after done)", Widget: uiElements.EmailEntry},
 			{Text: "Phone Number (To Receive call. Currently unavailable)", Widget: uiElements.PhoneEntry},
 			{Text: "Seat Facing (Prioritize Seats towards train's direction)", Widget: uiElements.SeatFaceEntry},
+			{Text: "Chrome Instance (1=first user, 2=second user, etc.)", Widget: uiElements.InstanceIndexEntry},
 		},
 	}
 

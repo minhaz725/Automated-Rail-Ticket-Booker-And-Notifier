@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"Rail-Ticket-Notifier/internal/arguments"
 	"Rail-Ticket-Notifier/utils/constants"
 	"bytes"
 	"context"
@@ -15,17 +16,90 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 )
+
+// activeChromePort holds the debug port chosen for this app instance.
+var activeChromePort int
+
+// GetDebugChromeURL returns the CDP endpoint URL for this instance's Chrome.
+func GetDebugChromeURL() string {
+	return fmt.Sprintf("http://localhost:%d", activeChromePort)
+}
+
+// GetDebugModeCheckURL returns the /json/version endpoint for this instance's Chrome.
+func GetDebugModeCheckURL() string {
+	return fmt.Sprintf("http://127.0.0.1:%d/json/version", activeChromePort)
+}
+
+// EnsureChrome launches a fresh isolated Chrome instance on the port that
+// corresponds to the selected instance index (index 1 → port 9222, 2 → 9223,
+// etc.) and waits until it is ready. Uses a stable profile dir so the user's
+// login session persists across restarts. No-op if already initialised.
+func EnsureChrome() error {
+	if activeChromePort != 0 {
+		return nil
+	}
+
+	index := arguments.INSTANCE_INDEX
+	if index < 1 || index > 10 {
+		index = 1
+	}
+	port := 9221 + index
+	activeChromePort = port
+	log.Printf("EnsureChrome: instance %d, debug port %d", index, port)
+
+	chromePath := getChromePath()
+	if chromePath == "" {
+		activeChromePort = 0
+		return fmt.Errorf("Chrome not found on this system")
+	}
+
+	// Stable profile dir — login persists across app restarts for this slot
+	profileDir := ""
+	if cacheBase, err := os.UserCacheDir(); err == nil {
+		profileDir = filepath.Join(cacheBase, "Rail-Ticket-Notifier", fmt.Sprintf("chrome-profile-%d", index))
+		if err := os.MkdirAll(profileDir, 0700); err != nil {
+			log.Printf("EnsureChrome: failed to create profile dir: %v", err)
+			profileDir = ""
+		}
+	}
+
+	args := []string{
+		fmt.Sprintf("--remote-debugging-port=%d", port),
+		"--restore-last-session",
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-blink-features=AutomationControlled",
+	}
+	if profileDir != "" {
+		args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
+	}
+	args = append(args, constants.HOME_URL)
+
+	if err := exec.Command(chromePath, args...).Start(); err != nil {
+		activeChromePort = 0
+		return fmt.Errorf("failed to launch Chrome: %w", err)
+	}
+	log.Printf("EnsureChrome: Chrome launched on port %d, waiting for debug port...", port)
+
+	if !waitForDebugPort(20 * time.Second) {
+		activeChromePort = 0
+		return fmt.Errorf("Chrome debug port %d not reachable within timeout", port)
+	}
+	log.Printf("EnsureChrome: Chrome ready on port %d", port)
+	return nil
+}
 
 func SetupChrome(window fyne.Window) bool {
 
 	label := widget.NewLabel(constants.CHROME_SETUP_MSG)
 	customDialog := dialog.NewCustom("Setting Up Chrome, Please Wait", "OK", container.NewVBox(label), window)
 	// POPUP
-	//customDialog.Show()
+	customDialog.Show()
 
 	chromePath := getChromePath()
 	if chromePath == "" {
@@ -34,48 +108,56 @@ func SetupChrome(window fyne.Window) bool {
 		return false
 	}
 
-	// Quick check: is a chrome already running with debugging enabled?
-	chromeAlreadyRunning := debugIsReady()
-	if !chromeAlreadyRunning {
-		// Prepare isolated user data dir so we are sure flags are honored
-		profileDir, err := os.MkdirTemp("", "chrome-debug-profile-")
-		if err != nil {
-			log.Printf("Failed to create temp profile dir: %v\n", err)
-		}
+	// Use the same fixed-port logic as EnsureChrome
+	index := arguments.INSTANCE_INDEX
+	if index < 1 || index > 10 {
+		index = 1
+	}
+	activeChromePort = 9221 + index
+	if activeChromePort == 0 {
+		log.Println("Invalid instance index. Aborting")
+		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
+		return false
+	}
+	log.Printf("Using instance %d, debug port %d", index, activeChromePort)
 
-		label.SetText("Launching Chrome in debug mode...")
-		args := []string{
-			"--remote-debugging-port=9222",
-			"--restore-last-session",
-			"--no-first-run",
-			"--no-default-browser-check",
-			"--disable-blink-features=AutomationControlled",
+	// Stable profile dir keyed to instance index
+	profileDir := ""
+	if cacheBase, err := os.UserCacheDir(); err == nil {
+		profileDir = filepath.Join(cacheBase, "Rail-Ticket-Notifier", fmt.Sprintf("chrome-profile-%d", index))
+		if err := os.MkdirAll(profileDir, 0700); err != nil {
+			log.Printf("Failed to create profile dir: %v\n", err)
+			profileDir = ""
 		}
-		if profileDir != "" {
-			args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
-		}
-		// Add the URL to open directly
-		args = append(args, constants.HOME_URL)
+	}
 
-		launchCmd := exec.Command(chromePath, args...)
-		if err := launchCmd.Start(); err != nil {
-			log.Printf("Error launching Chrome with remote debugging: %v\n", err)
-			label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
-			return false
-		}
-		log.Println("Chrome launched with remote debugging port 9222.")
+	label.SetText("Launching Chrome in debug mode...")
+	args := []string{
+		fmt.Sprintf("--remote-debugging-port=%d", activeChromePort),
+		"--restore-last-session",
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-blink-features=AutomationControlled",
+	}
+	if profileDir != "" {
+		args = append(args, fmt.Sprintf("--user-data-dir=%s", profileDir))
+	}
+	// Add the URL to open directly
+	args = append(args, constants.HOME_URL)
 
-		label.SetText("Waiting for debug port to become ready...")
-		if !waitForDebugPort(15 * time.Second) {
-			log.Println("Debug port not reachable within timeout.")
-			label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
-			return false
-		}
-	} else {
-		log.Println("Chrome is already running in debug mode. Using existing session.")
-		label.SetText("Chrome debug session found. Using existing session...")
-		// Don't try to navigate - user may already have the site open
-		// Just proceed to login verification
+	launchCmd := exec.Command(chromePath, args...)
+	if err := launchCmd.Start(); err != nil {
+		log.Printf("Error launching Chrome with remote debugging: %v\n", err)
+		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
+		return false
+	}
+	log.Printf("Chrome launched with remote debugging port %d.", activeChromePort)
+
+	label.SetText("Waiting for debug port to become ready...")
+	if !waitForDebugPort(15 * time.Second) {
+		log.Println("Debug port not reachable within timeout.")
+		label.SetText(constants.CHROME_SETUP_FAILURE_MSG)
+		return false
 	}
 
 	// Now show login verification dialog
@@ -117,7 +199,7 @@ func SetupChrome(window fyne.Window) bool {
 
 // navigateToEticketSite opens the railway ticket website in the first existing tab of debug Chrome
 func navigateToEticketSite() error {
-	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), GetDebugChromeURL())
 	defer cancelAlloc()
 
 	// Get existing targets (tabs)
@@ -164,7 +246,7 @@ func navigateToEticketSite() error {
 
 // verifyLogin checks if user is logged in by navigating to login URL and checking if it redirects
 func verifyLogin() bool {
-	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), constants.DEBUG_CHROME_URL)
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.Background(), GetDebugChromeURL())
 	defer cancelAlloc()
 
 	ctx, cancel := chromedp.NewContext(allocCtx)
@@ -195,7 +277,7 @@ func verifyLogin() bool {
 // debugIsReady does a quick GET to the debug version endpoint.
 func debugIsReady() bool {
 	client := &http.Client{Timeout: 1 * time.Second}
-	resp, err := client.Get(constants.DEBUG_MODE_CHECK_URL)
+	resp, err := client.Get(GetDebugModeCheckURL())
 	if err != nil {
 		return false
 	}
@@ -270,7 +352,7 @@ func waitForDebugPort(d time.Duration) bool {
 	deadline := time.Now().Add(d)
 	client := &http.Client{Timeout: 1 * time.Second}
 	for time.Now().Before(deadline) {
-		resp, err := client.Get(constants.DEBUG_MODE_CHECK_URL)
+		resp, err := client.Get(GetDebugModeCheckURL())
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {

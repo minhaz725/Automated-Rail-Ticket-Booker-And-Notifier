@@ -1,7 +1,7 @@
 package constants
 
 const (
-	BASE_URL                       = "https://eticket.railway.gov.bd/booking/train/search/?"
+	BASE_URL                       = "https://eticket.railway.gov.bd/booking/train/search?"
 	LOGIN_URL                      = "https://eticket.railway.gov.bd/login"
 	HOME_URL                       = "https://eticket.railway.gov.bd"
 	FROM_KEY                       = "fromcity="
@@ -14,8 +14,8 @@ const (
 	SENDER_EMAIL_NAME              = "Automated Rail Ticket System by Minhaz"
 	OWNER_EMAIL_ADDRESS            = "minhaz725@gmail.com"
 	SENDER_EMAIL_PASSWORD          = "yjia widg uwor uqfo"
-	SEARCH_DELAY_MIN_SEC           = 2
-	SEARCH_DELAY_MAX_SEC           = 6
+	SEARCH_DELAY_MIN_SEC           = 3
+	SEARCH_DELAY_MAX_SEC           = 7
 	CHROME_SETUP_LOGIN_MSG         = "Please log in to the railway website in the Chrome browser that just opened.\nOnce logged in, click 'Test Login' to verify."
 	CHROME_SETUP_LOGIN_RETRY_MSG   = "Login verification failed. Please try logging in again and click 'Test Login'."
 	CHROME_SETUP_LOGIN_SUCCESS_MSG = "Login verified successfully!"
