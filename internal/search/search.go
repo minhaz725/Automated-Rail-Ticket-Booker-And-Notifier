@@ -649,6 +649,22 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    			if (!seats) throw new Error("No seats found");
    			console.log("Found " + seats.length + " seats");
 
+			// Log all seat states
+			const allSeats = document.querySelectorAll('.btn-seat:not(.seat-hidden)');
+			const seatLog = { available: [], booked: [], inProgress: [] };
+			
+			allSeats.forEach(btn => {
+				const title = btn.getAttribute('title');
+				if (!title) return;
+				if (btn.classList.contains('seat-available'))       seatLog.available.push(title);
+				else if (btn.classList.contains('seat-booked'))     seatLog.booked.push(title);
+				else if (btn.classList.contains('seat-in-progress')) seatLog.inProgress.push(title);
+			});
+			
+			console.log("Available seats:", seatLog.available);
+			console.log("Booked seats:", seatLog.booked);
+			console.log("In-progress seats:", seatLog.inProgress);
+
    			// Click seats - first seat fast, 300ms delay before consecutive seats
    			const seatCount = parseInt("` + strconv.Itoa(int(arguments.SEAT_COUNT)) + `");
    			const goTowards = "` + arguments.SEAT_FACE + `".includes("Towards");
@@ -662,7 +678,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    				if (btn) {
    					// Wait 300ms before clicking 2nd, 3rd, 4th... seats (not first)
    					if (selected > 0) {
-   						await new Promise(r => setTimeout(r, 400));
+   						await new Promise(r => setTimeout(r, 600));
    					}
    					btn.click();
    					selected++;
