@@ -506,6 +506,17 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    		return new Promise(resolve => setTimeout(resolve, ms));
    	}
 
+   	function getTimeLog() {
+   		const now = new Date();
+   		const day = now.getDate();
+   		const month = now.toLocaleString('default', { month: 'long' });
+   		const hours = now.getHours();
+   		const minutes = String(now.getMinutes()).padStart(2, '0');
+   		const ampm = hours >= 12 ? 'pm' : 'am';
+   		const h = hours % 12 || 12;
+   		return day + ' ' + month + ', ' + h + ':' + minutes + ' ' + ampm;
+   	}
+
    	async function toggleSeats(hold) {
    		console.log((hold ? "Re-selecting" : "Unselecting") + " " + heldSeats.length + " seats...");
    		for (let i = 0; i < heldSeats.length; i++) {
@@ -532,15 +543,15 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    	async function holdCycle() {
    		if (stopRequested) return;
    		
-   		console.log("--- Hold cycle starting ---");
+   		console.log("--- Hold cycle starting [" + getTimeLog() + "] ---");
    		
    		// Unselect all seats
    		await toggleSeats(false);
    		
    		if (stopRequested) return;
    		
-   		// Wait 2.5 seconds
-   		console.log("Waiting 2.5s before re-selecting...");
+   		// Wait 1.5 seconds
+   		console.log("Waiting 1.5s before re-selecting...");
    		await sleep(1500);
    		
    		if (stopRequested) return;
@@ -548,7 +559,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    		// Re-select all seats
    		await toggleSeats(true);
    		
-   		console.log("--- Hold cycle complete ---");
+   		console.log("--- Hold cycle complete [" + getTimeLog() + "] ---");
    		
    		// Schedule next cycle
    		if (!stopRequested) {
@@ -671,9 +682,13 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    			let current = goTowards ? 1 : 100;
    			const inc = goTowards ? 1 : -1;
    			let selected = 0;
+   			const isBerth = ["AC_B", "F_BERTH"].includes("` + selectedClass + `");
 
    			for (let i = 0; i < 100 && selected < seatCount; i++) {
-   				const sel = '.btn-seat.seat-available[title="' + coachName + '-' + current + '"]';
+   				const seatTitle = isBerth
+   					? coachName + '-' + (current % 2 === 1 ? 'LO' : 'UP') + '-' + current
+   					: coachName + '-' + current;
+   				const sel = '.btn-seat.seat-available[title="' + seatTitle + '"]';
    				const btn = document.querySelector(sel);
    				if (btn) {
    					// Wait 300ms before clicking 2nd, 3rd, 4th... seats (not first)
@@ -682,7 +697,7 @@ func buildSeatHoldingJS(trainName, selectedClass string, holdDurationSeconds int
    					}
    					btn.click();
    					selected++;
-   					console.log("Clicked seat " + current + " (" + selected + "/" + seatCount + ")");
+   					console.log("Clicked seat " + seatTitle + " (" + selected + "/" + seatCount + ")");
    				}
    				current += inc;
    			}
