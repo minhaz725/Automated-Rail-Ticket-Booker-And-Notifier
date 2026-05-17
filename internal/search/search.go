@@ -7,6 +7,7 @@ import (
 	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -46,7 +47,47 @@ func getAuthCachePath() (string, error) {
 	return filepath.Join(dir, fileName), nil
 }
 
+func decodeJWTClaims(auth *models.CapturedAuth) {
+	token := auth.Authorization
+	if strings.HasPrefix(token, "Bearer ") {
+		token = token[7:]
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return
+	}
+	payload := parts[1]
+	// Add padding if needed
+	switch len(payload) % 4 {
+	case 2:
+		payload += "=="
+	case 3:
+		payload += "="
+	}
+	decoded, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		log.Printf("Failed to decode JWT payload: %v", err)
+		return
+	}
+	var claims struct {
+		DisplayName string `json:"display_name"`
+		Exp         int64  `json:"exp"`
+	}
+	if err := json.Unmarshal(decoded, &claims); err != nil {
+		log.Printf("Failed to parse JWT claims: %v", err)
+		return
+	}
+	if claims.DisplayName != "" {
+		auth.DisplayName = claims.DisplayName
+	}
+	if claims.Exp > 0 {
+		t := time.Unix(claims.Exp, 0)
+		auth.ExpiresAt = t.Format("2 Jan 2006, 3:04 PM")
+	}
+}
+
 func saveAuthToFile(auth *models.CapturedAuth) {
+	decodeJWTClaims(auth)
 	path, err := getAuthCachePath()
 	if err != nil {
 		log.Printf("Failed to get cache path: %v", err)

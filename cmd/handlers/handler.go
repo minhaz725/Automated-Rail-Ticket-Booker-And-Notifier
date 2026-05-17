@@ -5,6 +5,7 @@ import (
 	"Rail-Ticket-Notifier/internal/models"
 	"Rail-Ticket-Notifier/internal/notifier"
 	"Rail-Ticket-Notifier/internal/search"
+	"Rail-Ticket-Notifier/utils"
 	"Rail-Ticket-Notifier/utils/constants"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
@@ -27,21 +28,19 @@ func HandleFormSubmission(uiElements models.ElementsOfUI, submitButton *widget.B
 	}
 
 	// update preference for next time run
-	uiElements.App.Preferences().SetString("fromEntry", uiElements.FromEntry.Text)
-	uiElements.App.Preferences().SetString("toEntry", uiElements.ToEntry.Text)
-	uiElements.App.Preferences().SetString("dateEntry", uiElements.DateEntry.Text)
-	uiElements.App.Preferences().SetString("seatCountEntry", uiElements.SeatCountEntry.Text)
-	uiElements.App.Preferences().SetString("seatTypesEntry", uiElements.SeatTypesEntry.Text)
-	uiElements.App.Preferences().SetString("trainsEntry", uiElements.TrainsEntry.Text)
-	uiElements.App.Preferences().SetString("emailEntry", uiElements.EmailEntry.Text)
-	uiElements.App.Preferences().SetString("phoneEntry", uiElements.PhoneEntry.Text)
-	uiElements.App.Preferences().SetString("seatFaceEntry", uiElements.SeatFaceEntry.Selected)
-	uiElements.App.Preferences().SetString("instanceIndexEntry", uiElements.InstanceIndexEntry.Selected)
+	utils.SaveInstancePrefs(uiElements.InstanceIndex, map[string]string{
+		"fromEntry":      uiElements.FromEntry.Text,
+		"toEntry":        uiElements.ToEntry.Text,
+		"dateEntry":      uiElements.DateEntry.Text,
+		"seatCountEntry": uiElements.SeatCountEntry.Text,
+		"seatTypesEntry": uiElements.SeatTypesEntry.Text,
+		"trainsEntry":    uiElements.TrainsEntry.Text,
+		"emailEntry":     uiElements.EmailEntry.Text,
+		"phoneEntry":     uiElements.PhoneEntry.Text,
+		"seatFaceEntry":  uiElements.SeatFaceEntry.Selected,
+	})
 
-	instanceIndex, err := strconv.Atoi(uiElements.InstanceIndexEntry.Selected)
-	if err != nil || instanceIndex < 1 || instanceIndex > 10 {
-		instanceIndex = 1
-	}
+	instanceIndex := uiElements.InstanceIndex
 
 	// Update global variables in the arguments package
 	arguments.UpdateArguments(

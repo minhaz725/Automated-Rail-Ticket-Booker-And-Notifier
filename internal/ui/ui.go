@@ -19,9 +19,50 @@ import (
 	"time"
 )
 
-func InitializeUIAndForm() models.ElementsOfUI {
+func Run() {
 	os.Setenv("FYNE_SCALE", "0.8")
 	a := app.NewWithID("Rail-Ticket-Notifier")
+	showInstancePicker(a)
+}
+
+func showInstancePicker(a fyne.App) {
+	pickerWindow := a.NewWindow("Select Instance")
+	pickerWindow.Resize(fyne.NewSize(350, 200))
+	pickerWindow.SetFixedSize(true)
+
+	lastIndex := strconv.Itoa(utils.LoadLastInstanceIndex())
+
+	instanceOptions := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
+	instanceSelect := widget.NewSelect(instanceOptions, nil)
+	instanceSelect.SetSelected(lastIndex)
+
+	continueBtn := widget.NewButton("Continue", func() {
+		idx, err := strconv.Atoi(instanceSelect.Selected)
+		if err != nil || idx < 1 || idx > 10 {
+			idx = 1
+		}
+		arguments.INSTANCE_INDEX = idx
+		utils.SaveLastInstanceIndex(idx)
+
+		elementsOfUI := initializeUIAndForm(a, idx)
+		form := CreateForm(elementsOfUI)
+		elementsOfUI.Window.SetContent(container.NewVBox(form))
+		elementsOfUI.Window.Show()
+
+		pickerWindow.Close()
+	})
+
+	pickerWindow.SetContent(container.NewVBox(
+		widget.NewLabel("Select Chrome Instance:"),
+		instanceSelect,
+		continueBtn,
+	))
+
+	pickerWindow.ShowAndRun()
+}
+
+func initializeUIAndForm(a fyne.App, index int) models.ElementsOfUI {
+	prefs := utils.LoadInstancePrefs(index)
 
 	window := a.NewWindow("Automated Rail Ticket Booker & Notifier")
 	window.Resize(fyne.NewSize(800, 600))
@@ -36,39 +77,35 @@ func InitializeUIAndForm() models.ElementsOfUI {
 
 	// Create form fields with default values
 	fromEntry := widget.NewEntry()
-	fromEntry.SetText(a.Preferences().StringWithFallback("fromEntry", arguments.FROM))
+	fromEntry.SetText(utils.GetPrefWithFallback(prefs, "fromEntry", arguments.FROM))
 
 	toEntry := widget.NewEntry()
-	toEntry.SetText(a.Preferences().StringWithFallback("toEntry", arguments.TO))
+	toEntry.SetText(utils.GetPrefWithFallback(prefs, "toEntry", arguments.TO))
 
 	dateEntry := widget.NewEntry()
-	dateEntry.SetText(a.Preferences().StringWithFallback("dateEntry", arguments.DATE))
+	dateEntry.SetText(utils.GetPrefWithFallback(prefs, "dateEntry", arguments.DATE))
 
 	seatCountEntry := widget.NewEntry()
-	seatCountEntry.SetText(a.Preferences().StringWithFallback("seatCountEntry", strconv.Itoa(int(arguments.SEAT_COUNT))))
+	seatCountEntry.SetText(utils.GetPrefWithFallback(prefs, "seatCountEntry", strconv.Itoa(int(arguments.SEAT_COUNT))))
 
 	seatTypesEntry := widget.NewEntry()
-	seatTypesEntry.SetText(a.Preferences().StringWithFallback("seatTypesEntry", strings.Join(arguments.SEAT_TYPE_ARRAY, ",")))
+	seatTypesEntry.SetText(utils.GetPrefWithFallback(prefs, "seatTypesEntry", strings.Join(arguments.SEAT_TYPE_ARRAY, ",")))
 
 	trainsEntry := widget.NewEntry()
-	trainsEntry.SetText(a.Preferences().StringWithFallback("trainsEntry", strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ",")))
+	trainsEntry.SetText(utils.GetPrefWithFallback(prefs, "trainsEntry", strings.Join(arguments.SPECIFIC_TRAIN_ARRAY, ",")))
 
 	emailEntry := widget.NewEntry()
-	emailEntry.SetText(a.Preferences().StringWithFallback("emailEntry", arguments.RECEIVER_EMAIL_ADDRESS))
+	emailEntry.SetText(utils.GetPrefWithFallback(prefs, "emailEntry", arguments.RECEIVER_EMAIL_ADDRESS))
 
 	phoneEntry := widget.NewEntry()
-	phoneEntry.SetText(a.Preferences().StringWithFallback("phoneEntry", arguments.PHONE_NUMBER))
+	phoneEntry.SetText(utils.GetPrefWithFallback(prefs, "phoneEntry", arguments.PHONE_NUMBER))
 	phoneEntry.Disable()
 
 	options := []string{"Travelling Towards Dhaka", "Travelling From Dhaka"}
 
 	seatFaceEntry := widget.NewRadioGroup(options, func(value string) {})
 	seatFaceEntry.Horizontal = true
-	seatFaceEntry.SetSelected(a.Preferences().StringWithFallback("seatFaceEntry", arguments.SEAT_FACE))
-
-	instanceOptions := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
-	instanceIndexEntry := widget.NewSelect(instanceOptions, func(value string) {})
-	instanceIndexEntry.SetSelected(a.Preferences().StringWithFallback("instanceIndexEntry", "1"))
+	seatFaceEntry.SetSelected(utils.GetPrefWithFallback(prefs, "seatFaceEntry", arguments.SEAT_FACE))
 
 	content := container.NewVBox(fromEntry, toEntry, dateEntry, seatCountEntry, seatTypesEntry, trainsEntry, emailEntry, phoneEntry)
 
@@ -79,18 +116,17 @@ func InitializeUIAndForm() models.ElementsOfUI {
 	window.SetContent(scrollContainer)
 
 	uiElements := models.ElementsOfUI{
-		App:                a,
-		Window:             window,
-		FromEntry:          fromEntry,
-		ToEntry:            toEntry,
-		DateEntry:          dateEntry,
-		SeatCountEntry:     seatCountEntry,
-		SeatTypesEntry:     seatTypesEntry,
-		TrainsEntry:        trainsEntry,
-		EmailEntry:         emailEntry,
-		PhoneEntry:         phoneEntry,
-		SeatFaceEntry:      seatFaceEntry,
-		InstanceIndexEntry: instanceIndexEntry,
+		Window:         window,
+		FromEntry:      fromEntry,
+		ToEntry:        toEntry,
+		DateEntry:      dateEntry,
+		SeatCountEntry: seatCountEntry,
+		SeatTypesEntry: seatTypesEntry,
+		TrainsEntry:    trainsEntry,
+		EmailEntry:     emailEntry,
+		PhoneEntry:     phoneEntry,
+		SeatFaceEntry:  seatFaceEntry,
+		InstanceIndex:  index,
 	}
 
 	return uiElements
@@ -114,7 +150,6 @@ func CreateForm(uiElements models.ElementsOfUI) *fyne.Container {
 			{Text: "Email address (To receive mail after done)", Widget: uiElements.EmailEntry},
 			{Text: "Phone Number (To Receive call. Currently unavailable)", Widget: uiElements.PhoneEntry},
 			{Text: "Seat Facing (Prioritize Seats towards train's direction)", Widget: uiElements.SeatFaceEntry},
-			{Text: "Chrome Instance (1=first user, 2=second user, etc.)", Widget: uiElements.InstanceIndexEntry},
 		},
 	}
 
