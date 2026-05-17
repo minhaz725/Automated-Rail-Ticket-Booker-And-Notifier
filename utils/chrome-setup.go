@@ -52,6 +52,12 @@ func EnsureChrome() error {
 	activeChromePort = port
 	log.Printf("EnsureChrome: instance %d, debug port %d", index, port)
 
+	// Check if Chrome is already running on this port
+	if isPortReachable(port) {
+		log.Printf("EnsureChrome: Chrome already running on port %d, reusing", port)
+		return nil
+	}
+
 	chromePath := getChromePath()
 	if chromePath == "" {
 		activeChromePort = 0
@@ -348,6 +354,16 @@ func waitForChromeExit(d time.Duration) bool {
 }
 
 // waitForDebugPort polls the debug endpoint until available or timeout.
+func isPortReachable(port int) bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/json/version", port))
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
 func waitForDebugPort(d time.Duration) bool {
 	deadline := time.Now().Add(d)
 	client := &http.Client{Timeout: 1 * time.Second}

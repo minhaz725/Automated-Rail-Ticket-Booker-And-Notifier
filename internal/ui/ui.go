@@ -44,6 +44,12 @@ func showInstancePicker(a fyne.App) {
 		arguments.INSTANCE_INDEX = idx
 		utils.SaveLastInstanceIndex(idx)
 
+		// Launch Chrome immediately after index selection
+		if err := utils.EnsureChrome(); err != nil {
+			dialog.ShowError(err, pickerWindow)
+			return
+		}
+
 		elementsOfUI := initializeUIAndForm(a, idx)
 		form := CreateForm(elementsOfUI)
 		elementsOfUI.Window.SetContent(container.NewVBox(form))
