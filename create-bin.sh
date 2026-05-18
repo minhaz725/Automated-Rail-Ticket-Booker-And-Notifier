@@ -1,23 +1,21 @@
 #!/bin/bash
 echo "Starting build..."
-rm -f automated-ticket-booker.exe
+rm -f automated-ticket-booker
 echo "Removed old build"
 sleep 1
 cd "cmd/main"
 echo "Changed directory to cmd/main"
 sleep 1
 
-cp "../../versioninfo.json" "." 2>/dev/null
-echo "Copied versioninfo.json"
-sleep 1
-
-cp "../../static/rail.ico" "." 2>/dev/null
-echo "Copied rail.ico"
-sleep 1
-
-goversioninfo -platform-specific=true
-echo "Ran goversioninfo"
-sleep 1
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+    cp "../../versioninfo.json" "." 2>/dev/null
+    echo "Copied versioninfo.json"
+    cp "../../static/rail.ico" "." 2>/dev/null
+    echo "Copied rail.ico"
+    goversioninfo -platform-specific=true
+    echo "Ran goversioninfo"
+    sleep 1
+fi
 
 go build
 echo "Build complete"
