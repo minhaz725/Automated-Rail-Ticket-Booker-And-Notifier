@@ -259,8 +259,9 @@ func FindAvailableSeats(trains *models.TrainResponse, targetTrains []string, tar
 					continue
 				}
 				for _, seat := range train.SeatTypes {
-					if seat.Type == targetType && seat.SeatCounts.Online >= int(minSeats) {
-						return train.TripNumber, seat.Type, seat.SeatCounts.Online
+					total := seat.SeatCounts.Online + seat.SeatCounts.Offline
+					if seat.Type == targetType && total >= int(minSeats) {
+						return train.TripNumber, seat.Type, total
 					}
 				}
 			}
@@ -361,8 +362,9 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		log.Printf("Found %d trains", len(trains.Data.Trains))
 		for _, t := range trains.Data.Trains {
 			for _, s := range t.SeatTypes {
-				if s.SeatCounts.Online > 0 {
-					log.Printf("  %s - %s: %d seats", t.TripNumber, s.Type, s.SeatCounts.Online)
+				total := s.SeatCounts.Online + s.SeatCounts.Offline
+				if total > 0 {
+					log.Printf("  %s - %s: %d seats", t.TripNumber, s.Type, total)
 				}
 			}
 		}
