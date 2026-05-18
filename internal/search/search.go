@@ -311,13 +311,16 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 		log.Fatal("Failed to get auth:", err)
 	}
 
-	// Generate alt URL if needed
+	// Generate alt URL if needed (disabled when multi-destination is active)
 	altUrl := ""
 	searchAltUrl := false
-	if strings.EqualFold(arguments.FROM, "Dhaka") {
-		altUrl = arguments.GenerateAltURL()
-		searchAltUrl = true
-		log.Println("Alt search (Biman Bandar) enabled")
+	// if strings.EqualFold(arguments.FROM, "Dhaka") && len(arguments.MULTI_TO_ARRAY) == 0 {
+	// 	altUrl = arguments.GenerateAltURL()
+	// 	searchAltUrl = true
+	// 	log.Println("Alt search (Biman Bandar) enabled")
+	// }
+	if len(arguments.MULTI_TO_ARRAY) > 0 {
+		log.Printf("Multi-destination search enabled: %v", arguments.MULTI_TO_ARRAY)
 	}
 
 	attemptNo := 0
@@ -325,21 +328,27 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 	// Step 2: Search loop using direct API
 	for {
 		log.Printf("Search attempt %d...", attemptNo+1)
-		log.Println("Search Url: " + createAltUrl(originalUrl, searchAltUrl, attemptNo, originalUrl, altUrl))
 
 		// Decide which FROM to use
-
 		currentFrom := arguments.FROM
-		//currentTo := arguments.TO
-		//currentDate := arguments.DATE
 		if searchAltUrl && attemptNo%2 == 1 {
 			currentFrom = "Biman_Bandar"
-			//currentTo = "Sylhet"
-			//currentDate = "28-Mar-2026"
 			_ = altUrl
 		}
 
-		trains, err := SearchTrainsAPI(auth, currentFrom, arguments.TO, arguments.DATE, arguments.SEAT_TYPE_ARRAY[0])
+		// Multi-destination cycling — also handle comma-separated TO (e.g. from UI field)
+		destinations := arguments.MULTI_TO_ARRAY
+		if len(destinations) == 0 {
+			if strings.Contains(arguments.TO, ",") {
+				destinations = strings.Split(arguments.TO, ",")
+			} else {
+				destinations = []string{arguments.TO}
+			}
+		}
+		currentTo := destinations[attemptNo%len(destinations)]
+		log.Printf("Searching: %s → %s | URL: %s", currentFrom, currentTo, arguments.GenerateURLForDest(currentTo))
+
+		trains, err := SearchTrainsAPI(auth, currentFrom, currentTo, arguments.DATE, arguments.SEAT_TYPE_ARRAY[0])
 		if err != nil {
 			log.Printf("API error: %v", err)
 
@@ -382,7 +391,8 @@ func PerformSearch(originalUrl string, seatBookerFunction string) (string, bool)
 			messageBody = fmt.Sprintf("Train: %s\nClass: %s\nAvailable: %d seats\n", trainName, seatType, seatCount)
 
 			// Step 3: Use the SAME browser context to book
-			success := bookSeatsInExistingTab(browserCtx, trainName, seatType, originalUrl, &messageBody)
+			bookingUrl := arguments.GenerateURLForDest(currentTo)
+			success := bookSeatsInExistingTab(browserCtx, trainName, seatType, bookingUrl, &messageBody)
 			if success {
 				return messageBody, true
 			}

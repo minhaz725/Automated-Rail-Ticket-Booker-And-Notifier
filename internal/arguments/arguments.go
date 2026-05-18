@@ -15,6 +15,7 @@ var (
 	PHONE_NUMBER           string
 	SEAT_TYPE_ARRAY        = []string{"SNIGDHA", "F_BERTH", "AC_B", "AC_S", "S_CHAIR", "F_SEAT", "SHOVON"}
 	SPECIFIC_TRAIN_ARRAY   = []string{"SUBORNO"} //{"SONAR", "TURNA", "SUBORNO"}
+	MULTI_TO_ARRAY         = []string{}
 	RECEIVER_EMAIL_ADDRESS string
 	SEAT_FACE              string
 	GO_TO_BOOK_PAGE        uint
@@ -43,6 +44,11 @@ func init() {
 
 	flag.Func("trains", "Specific trains", func(s string) error {
 		SPECIFIC_TRAIN_ARRAY = strings.Split(s, ",")
+		return nil
+	})
+
+	flag.Func("multiTo", "Multiple destination cities (comma-separated), cycles per attempt", func(s string) error {
+		MULTI_TO_ARRAY = strings.Split(s, ",")
 		return nil
 	})
 
@@ -85,4 +91,8 @@ func GenerateURL() string {
 
 func GenerateAltURL() string {
 	return constants.BASE_URL + constants.FROM_KEY + "Biman_Bandar" + constants.TO_KEY + TO + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
+}
+
+func GenerateURLForDest(dest string) string {
+	return constants.BASE_URL + constants.FROM_KEY + FROM + constants.TO_KEY + dest + constants.DATE_KEY + DATE + constants.CLASS_KEY + SEAT_TYPE_ARRAY[0]
 }
